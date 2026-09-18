@@ -725,11 +725,15 @@ a { color: inherit; }
 @media (max-width: 900px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
 
 .stat-card {
-  background: var(--white);
+  background: var(--cream-100);
   border: 1px solid var(--line);
-  border-left: 3px solid var(--brown-600);
   border-radius: var(--radius);
   padding: 16px 18px;
+  transition: transform 0.15s ease;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  background: var(--cream-200);
 }
 
 .stat-value {

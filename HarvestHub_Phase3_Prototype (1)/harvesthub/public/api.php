@@ -434,8 +434,37 @@ try {
             $map = ['gardener' => ['COMMUNITY_GARDENER', 'GardenerID'], 'coordinator' => ['GARDEN_COORDINATOR', 'CoordID']];
             if (!isset($map[$table]) || !ctype_digit((string) $id)) respond(['ok' => false, 'error' => 'Invalid request.'], 422);
 
-            [$tbl, $col] = $map[$table];
-            $pdo->prepare("DELETE FROM $tbl WHERE $col = ?")->execute([(int) $id]);
+            $idNum = (int) $id;
+
+            if ($table === 'gardener') {
+                $pdo->beginTransaction();
+                try {
+                    // Release any plot assigned to this gardener
+                    $pdo->prepare("UPDATE PLOT SET GardenerID = NULL, Status = 'Available' WHERE GardenerID = ?")->execute([$idNum]);
+
+                    // Removes associated transaction/log records
+                    $pdo->prepare("DELETE FROM PLOT_APPLICATION WHERE GardenerID = ?")->execute([$idNum]);
+                    $pdo->prepare("DELETE FROM CROP_LOG WHERE GardenerID = ?")->execute([$idNum]);
+                    $pdo->prepare("DELETE FROM RESOURCE_TXN WHERE GardenerID = ?")->execute([$idNum]);
+                    $pdo->prepare("DELETE FROM EXCHANGE_ORDER WHERE GardenerID = ?")->execute([$idNum]);
+
+                    // Deletes listings created by the gardener
+                    $pdo->prepare("DELETE FROM EXCHANGE_ORDER WHERE ListingID IN (SELECT ListingID FROM EXCHANGE_LISTING WHERE GardenerID = ?)")->execute([$idNum]);
+                    $pdo->prepare("DELETE FROM EXCHANGE_LISTING WHERE GardenerID = ?")->execute([$idNum]);
+
+                    // Deletes gardener profile
+                    $pdo->prepare("DELETE FROM COMMUNITY_GARDENER WHERE GardenerID = ?")->execute([$idNum]);
+
+                    $pdo->commit();
+                } catch (Throwable $t) {
+                    $pdo->rollBack();
+                    throw $t;
+                }
+            } else {
+                [$tbl, $col] = $map[$table];
+                $pdo->prepare("DELETE FROM $tbl WHERE $col = ?")->execute([$idNum]);
+            }
+
             respond(['ok' => true]);
         }
 

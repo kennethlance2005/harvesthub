@@ -19,9 +19,13 @@ $navTitle = 'System Administrator Dashboard';
 
 <main class="wrap page-wrap" id="top">
 
-  <div class="stat-grid" id="stats-row"></div>
+  <!-- Wrap stats in a unified panel -->
+  <div class="panel" style="margin-bottom: 24px;">
+    <p class="panel-title">System Overview</p>
+    <div class="stat-grid" id="stats-row" style="margin-bottom: 0;"></div>
+  </div>
 
-  <div class="grid grid-2">
+  <div class="grid" style="grid-template-columns: 2fr 1fr;">
     <div>
       <div class="panel" style="margin-bottom: 24px;">
         <p class="panel-title">Community Gardeners</p>
