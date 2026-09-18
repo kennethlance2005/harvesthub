@@ -124,8 +124,24 @@ async function loadPlots() {
   `).join('');
 }
 
+async function loadResources() {
+  const res = await fetch('api.php?action=all_resources');
+  const data = await res.json();
+  if (!data.ok) return;
+
+  document.getElementById('resources-table').innerHTML = data.resources.map(resource => `
+    <tr>
+      <td>${escapeHtml(resource.Name)}</td>
+      <td>${escapeHtml(String(resource.TotalQty))}</td>
+      <td>${escapeHtml(String(resource.AvailableQty))}</td>
+      <td>${resource.Borrowers ? escapeHtml(resource.Borrowers) : '<span class="text-muted">None</span>'}</td>
+    </tr>
+  `).join('');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   loadApplications();
   loadResourceTxns();
   loadPlots();
+  loadResources();
 });
