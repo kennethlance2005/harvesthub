@@ -12,9 +12,10 @@ form.addEventListener('submit', async (e) => {
 
   const password = document.getElementById('password').value;
   const confirmPassword = document.getElementById('confirm-password').value;
-  const role = document.getElementById('role').value;
+  const formValues = new FormData(form);
+  const role = String(formValues.get('role') || '').trim();
 
-  if (!role) {
+  if (!['customer', 'staff'].includes(role)) {
     alertEl.textContent = 'Please select a role.';
     alertEl.hidden = false;
     return;

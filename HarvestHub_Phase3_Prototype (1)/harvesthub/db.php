@@ -43,12 +43,19 @@ function ensureSignupRequestsTable(PDO $pdo): void {
             Location TEXT NOT NULL,
             Email TEXT NOT NULL,
             PasswordHash TEXT NOT NULL,
+            Role TEXT NOT NULL DEFAULT 'customer',
             Status TEXT NOT NULL DEFAULT 'Pending',
             RequestedAt TEXT NOT NULL DEFAULT (datetime('now')),
             ReviewedAt TEXT,
             ReviewedBy INTEGER
         );
     ");
+
+    $cols = $pdo->query("PRAGMA table_info(SIGNUP_REQUEST)")->fetchAll(PDO::FETCH_ASSOC);
+    $names = array_column($cols, 'name');
+    if (!in_array('Role', $names, true)) {
+        $pdo->exec("ALTER TABLE SIGNUP_REQUEST ADD COLUMN Role TEXT NOT NULL DEFAULT 'customer'");
+    }
 }
 
 /**
