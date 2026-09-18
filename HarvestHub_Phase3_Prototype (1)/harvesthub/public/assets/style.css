@@ -782,11 +782,15 @@ a { color: inherit; }
 @media (max-width: 900px) { .stat-grid { grid-template-columns: repeat(2, 1fr); } }
 
 .stat-card {
-  background: var(--white);
+  background: var(--cream-100);
   border: 1px solid var(--line);
-  border-left: 3px solid var(--brown-600);
   border-radius: var(--radius);
   padding: 16px 18px;
+  transition: transform 0.15s ease;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  background: var(--cream-200);
 }
 
 .stat-value {
@@ -898,85 +902,222 @@ table.data-table {
 /* ---------- Login ---------- */
 
 .login-shell {
+  position: relative;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(165deg, var(--green-800) 0%, var(--green-900) 100%);
   padding: 24px;
+  background: url("login-bg.gif") center / cover no-repeat fixed;
+}
+
+/* Dark green wash over the background gif so the glass card stays readable */
+.login-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(165deg, rgba(22, 40, 28, 0.55) 0%, rgba(15, 26, 18, 0.78) 100%);
 }
 
 .login-card {
+  position: relative;
+  z-index: 1;
   width: 100%;
-  max-width: 400px;
+  max-width: 600px;
+  padding: 46px 42px 38px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 20px;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
 }
 
 .login-brand {
   text-align: center;
-  margin-bottom: 22px;
   color: var(--white);
 }
 
-.login-brand .sprout { font-size: 2.2rem; display: block; margin-bottom: 6px; }
+.login-brand .sprout { font-size: 2rem; display: block; margin-bottom: 4px; }
 
 .login-brand h1 {
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   margin: 0;
+  letter-spacing: 0.02em;
 }
 
-.login-brand p {
-  color: var(--cream-200);
-  font-size: 0.88rem;
-  margin: 4px 0 0;
-}
-
-.login-panel {
-  background: var(--white);
-  border-radius: var(--radius);
-  padding: 26px;
+.login-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.9rem;
+  color: var(--white);
+  text-align: center;
+  margin: 10px 0 22px;
 }
 
 .role-tabs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  background: var(--cream-200);
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: var(--radius);
-  padding: 4px;
-  margin-bottom: 20px;
+  padding: 6px;
+  margin-bottom: 26px;
 }
 
 .role-tab {
   border: none;
   background: transparent;
-  padding: 9px 6px;
+  padding: 14px 8px;
   font-family: var(--font-body);
-  font-size: 0.85rem;
+  font-size: 0.98rem;
   font-weight: 600;
-  color: var(--ink-600);
+  color: var(--cream-200);
   border-radius: 4px;
   cursor: pointer;
 }
 
 .role-tab.active {
-  background: var(--white);
+  background: rgba(255, 255, 255, 0.92);
   color: var(--green-800);
   box-shadow: 0 1px 3px rgba(0,0,0,0.12);
 }
 
+/* Underline-style inputs for the glass login card */
+.field-underline { margin-bottom: 20px; }
+
+.field-underline label {
+  display: block;
+  color: var(--cream-200);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.field-underline input {
+  width: 100%;
+  background-color: transparent !important;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 0;
+  padding: 6px 2px 10px;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--white) !important;
+  caret-color: var(--white);
+  /* Tells the browser this field lives on a dark surface, so native
+     UI (autofill panel, spellcheck squiggles, etc.) picks light text
+     instead of defaulting to a light box that hides white text. */
+  color-scheme: dark;
+}
+
+.field-underline input::placeholder { color: rgba(255, 255, 255, 0.55); }
+
+.field-underline input:focus {
+  outline: none;
+  border-bottom-color: var(--white);
+}
+
+/* Chrome/Brave/Edge paint autofilled fields with an opaque light
+   background and dark text by default, which is what was hiding the
+   typed characters here — this repaints it to match the glass card. */
+.field-underline input:-webkit-autofill,
+.field-underline input:-webkit-autofill:hover,
+.field-underline input:-webkit-autofill:focus,
+.field-underline input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--white) !important;
+  -webkit-box-shadow: 0 0 0 1000px rgba(20, 35, 25, 0.35) inset !important;
+  box-shadow: 0 0 0 1000px rgba(20, 35, 25, 0.35) inset !important;
+  caret-color: var(--white) !important;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+.login-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 0 24px;
+  font-size: 0.82rem;
+}
+
+.remember-me {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--cream-200);
+  cursor: pointer;
+}
+.remember-me input { accent-color: var(--brown-600); }
+
+.forgot-link {
+  color: var(--white);
+  font-weight: 600;
+  text-decoration: none;
+}
+.forgot-link:hover { text-decoration: underline; }
+
+.btn-light {
+  background: var(--white);
+  color: var(--ink-900);
+  border-radius: 999px;
+  padding: 13px 26px;
+}
+.btn-light:hover { background: var(--cream-200); }
+
+.login-card .form-alert {
+  background: rgba(163, 54, 42, 0.9);
+  color: var(--white);
+}
+
 .demo-hint {
-  margin-top: 14px;
+  margin-top: 16px;
   font-size: 0.8rem;
-  color: var(--ink-600);
+  color: var(--cream-200);
   text-align: center;
 }
 .demo-hint code {
-  background: var(--cream-200);
+  background: rgba(255, 255, 255, 0.15);
   padding: 1px 6px;
   border-radius: 4px;
-  color: var(--brown-700);
+  color: var(--white);
+}
+
+/* ---------- Create-account link + register page ---------- */
+
+.signup-hint {
+  margin-top: 18px;
+  font-size: 0.88rem;
+  color: var(--cream-200);
+  text-align: center;
+}
+
+.signup-link {
+  color: var(--white);
+  font-weight: 700;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+}
+.signup-link:hover { border-bottom-color: var(--white); }
+
+.register-card { max-width: 780px; }
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+}
+
+@media (max-width: 480px) {
+  .field-row { grid-template-columns: 1fr; gap: 0; }
+}
+
+.login-card .form-success {
+  background: rgba(228, 235, 224, 0.92);
+  color: var(--green-800);
 }
 
 /* ---------- Small utility forms (dashboard inline forms) ---------- */
@@ -988,7 +1129,7 @@ table.data-table {
 select, .field select {
   font-family: var(--font-body);
   font-size: 0.92rem;
-  padding: 10px 12px;
+  padding: 10x 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--white);
