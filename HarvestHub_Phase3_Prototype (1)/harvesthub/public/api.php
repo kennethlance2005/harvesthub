@@ -380,6 +380,13 @@ try {
             respond(['ok' => true, 'plots' => $rows]);
         }
 
+        case 'all_resources': {
+            requireJsonRole('staff');
+            $rows = $pdo->query("\n                SELECT R.ResourceID, R.Name, R.TotalQty, R.AvailableQty,\n                       GROUP_CONCAT(G.Name || ' (' || T.Qty || ')', ', ') AS Borrowers\n                FROM RESOURCE R\n                LEFT JOIN RESOURCE_TXN T\n                  ON T.ResourceID = R.ResourceID AND T.Status = 'Approved'\n                LEFT JOIN COMMUNITY_GARDENER G ON G.GardenerID = T.GardenerID\n                GROUP BY R.ResourceID, R.Name, R.TotalQty, R.AvailableQty\n                ORDER BY R.Name\n            ")
+                ->fetchAll(PDO::FETCH_ASSOC);
+            respond(['ok' => true, 'resources' => $rows]);
+        }
+
         // ---------------- ADMIN ----------------
 
         case 'stats': {
