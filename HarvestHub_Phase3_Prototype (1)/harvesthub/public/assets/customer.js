@@ -31,9 +31,12 @@ async function loadPlot() {
   const el = document.getElementById('plot-status');
   if (!data.ok) return;
 
-  if (data.plot) {
+  if (data.plots.length > 0) {
     el.innerHTML = `
-      <p class="form-success" style="display:block;"><strong>${escapeHtml(data.plot.Label)}</strong> is assigned to you.</p>
+      <p class="text-muted" style="font-size: 0.85rem; margin: 0 0 8px;">Your currently assigned plots:</p>
+      <ul style="margin: 0; padding-left: 18px;">
+        ${data.plots.map(plot => `<li><strong>${escapeHtml(plot.Label)}</strong></li>`).join('')}
+      </ul>
       <p class="text-muted" style="font-size: 0.85rem;">Log your crops and resource needs using the panels alongside this one.</p>
     `;
     return;
@@ -180,9 +183,83 @@ document.getElementById('resource-form').addEventListener('submit', async (e) =>
   }
 });
 
+const plotBtn = document.getElementById('request-plot-btn');
+const plotAlert = document.getElementById('plot-request-alert');
+const plotSuccess = document.getElementById('plot-request-success');
+const availablePlotsEl = document.getElementById('available-plots');
+
+function renderAvailablePlots(plots) {
+  if (plots.length === 0) {
+    availablePlotsEl.innerHTML = '<p class="text-muted" style="font-size: 0.85rem;">No plots are available right now. Check back later.</p>';
+    return;
+  }
+
+  availablePlotsEl.innerHTML = `
+    <p class="text-muted" style="font-size: 0.85rem; margin: 0 0 8px;">Choose an available plot to request:</p>
+    <div class="inline-form">
+      <select id="more-plot-select" class="field-select" style="flex: 1;">
+        ${plots.map(plot => `<option value="${plot.PltID}">${escapeHtml(plot.Label)}</option>`).join('')}
+      </select>
+      <button type="button" class="btn btn-accent btn-sm" id="more-plot-apply">Request</button>
+    </div>
+  `;
+
+  document.getElementById('more-plot-apply').addEventListener('click', async () => {
+    const applyBtn = document.getElementById('more-plot-apply');
+    applyBtn.disabled = true;
+    plotAlert.hidden = true;
+    plotSuccess.hidden = true;
+
+    const result = await postAction('apply_plot', {
+      plt_id: document.getElementById('more-plot-select').value,
+    });
+
+    if (result.ok) {
+      plotSuccess.textContent = 'Plot request submitted for Coordinator approval.';
+      plotSuccess.hidden = false;
+      availablePlotsEl.hidden = true;
+      plotBtn.textContent = 'Request for more plots';
+    } else {
+      plotAlert.textContent = result.error || 'Could not submit plot request.';
+      plotAlert.hidden = false;
+      applyBtn.disabled = false;
+    }
+  });
+}
+
+if (plotBtn) {
+  plotBtn.addEventListener('click', async () => {
+    if (!availablePlotsEl.hidden) {
+      availablePlotsEl.hidden = true;
+      plotBtn.textContent = 'Request for more plots';
+      return;
+    }
+
+    plotAlert.hidden = true;
+    plotSuccess.hidden = true;
+    plotBtn.disabled = true;
+
+    try {
+      const res = await fetch('api.php?action=my_plot');
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Could not load available plots.');
+
+      renderAvailablePlots(data.available_plots);
+      availablePlotsEl.hidden = false;
+      plotBtn.textContent = 'Hide available plots';
+    } catch (err) {
+      plotAlert.textContent = err.message;
+      plotAlert.hidden = false;
+    } finally {
+      plotBtn.disabled = false;
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   loadPlot();
   loadCropLog();
   loadResources();
   loadMyRequests();
+  setInterval(loadPlot, 5000);
 });

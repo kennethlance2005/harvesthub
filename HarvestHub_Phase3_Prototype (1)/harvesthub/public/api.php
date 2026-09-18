@@ -183,9 +183,9 @@ try {
 
         case 'my_plot': {
             $user = requireJsonRole('customer');
-            $plot = $pdo->prepare("SELECT PltID, Label, Status FROM PLOT WHERE GardenerID = ?");
+            $plot = $pdo->prepare("SELECT PltID, Label, Status FROM PLOT WHERE GardenerID = ? ORDER BY Label");
             $plot->execute([$user['id']]);
-            $plotRow = $plot->fetch(PDO::FETCH_ASSOC);
+            $plots = $plot->fetchAll(PDO::FETCH_ASSOC);
 
             $pending = $pdo->prepare("
                 SELECT PA.AppID, P.Label FROM PLOT_APPLICATION PA
@@ -198,7 +198,7 @@ try {
 
             respond([
                 'ok' => true,
-                'plot' => $plotRow ?: null,
+                'plots' => $plots,
                 'pending_application' => $pending->fetch(PDO::FETCH_ASSOC) ?: null,
                 'available_plots' => $available,
             ]);
