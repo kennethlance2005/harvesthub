@@ -1,0 +1,447 @@
+<?php
+/**
+ * api.php — HarvestHub JSON API
+ *
+ * Routes are grouped by role. All routes return { ok: bool, ... } JSON.
+ * Every write action re-validates on the server and uses prepared PDO
+ * statements — client-side checks in the dashboards are for UX only.
+ *
+ *  AUTH (public)
+ *    POST action=login        { role, email, password }
+ *    POST action=logout
+ *
+ *  CUSTOMER (requires customer session)
+ *    GET  action=list                 -> exchange listings (search, min_qty)
+ *    POST action=create               -> new exchange listing
+ *    POST action=claim                -> claim a listing
+ *    GET  action=my_plot              -> the gardener's plot + application status
+ *    POST action=apply_plot           -> apply for an available plot
+ *    GET  action=my_croplog           -> the gardener's crop log entries
+ *    POST action=croplog_create       -> add a crop log entry
+ *    GET  action=resources            -> resource catalogue + availability
+ *    POST action=resource_request     -> request a resource
+ *    GET  action=my_resource_requests -> the gardener's own requests
+ *
+ *  STAFF (requires staff session)
+ *    GET  action=pending_applications
+ *    POST action=process_application  { app_id, decision: approve|reject }
+ *    GET  action=pending_resource_txns
+ *    POST action=process_resource_txn { txn_id, decision: approve|reject }
+ *    GET  action=all_plots
+ *
+ *  ADMIN (requires admin session)
+ *    GET  action=stats
+ *    GET  action=accounts
+ *    POST action=add_coordinator      { name, email, password, shift }
+ *    POST action=delete_account       { table: gardener|coordinator, id }
+ */
+
+require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/auth.php';
+
+header('Content-Type: application/json');
+
+$pdo = getDb();
+$action = $_GET['action'] ?? $_POST['action'] ?? '';
+
+function respond(array $data, int $status = 200): void {
+    http_response_code($status);
+    echo json_encode($data);
+    exit;
+}
+
+function requireJsonRole(string $role): array {
+    $user = currentUser();
+    if (!$user || $user['role'] !== $role) {
+        respond(['ok' => false, 'error' => 'Not authorized.'], 403);
+    }
+    return $user;
+}
+
+// Whitelisted sort options for the Exchange Board — never interpolate
+// raw user input into ORDER BY.
+const SORT_OPTIONS = [
+    'newest'   => 'L.CreatedAt DESC',
+    'oldest'   => 'L.CreatedAt ASC',
+    'qty_high' => 'L.Qty DESC',
+    'qty_low'  => 'L.Qty ASC',
+];
+
+try {
+    switch ($action) {
+
+        // ---------------- AUTH ----------------
+
+        case 'login': {
+            $role = $_POST['role'] ?? '';
+            $email = trim($_POST['email'] ?? '');
+            $password = $_POST['password'] ?? '';
+
+            $table = match ($role) {
+                'admin' => 'SYSTEM_ADMINISTRATOR',
+                'staff' => 'GARDEN_COORDINATOR',
+                'customer' => 'COMMUNITY_GARDENER',
+                default => null,
+            };
+            if (!$table || $email === '' || $password === '') {
+                respond(['ok' => false, 'error' => 'Please fill in all fields.'], 422);
+            }
+
+            $idCol = match ($role) {
+                'admin' => 'AdminID',
+                'staff' => 'CoordID',
+                'customer' => 'GardenerID',
+            };
+
+            $stmt = $pdo->prepare("SELECT * FROM $table WHERE Email = ?");
+            $stmt->execute([$email]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$row || !password_verify($password, $row['PasswordHash'])) {
+                respond(['ok' => false, 'error' => 'Invalid email or password.'], 401);
+            }
+
+            $_SESSION['user'] = [
+                'role' => $role,
+                'id' => (int) $row[$idCol],
+                'name' => $row['Name'],
+            ];
+            respond(['ok' => true, 'redirect' => loginRedirectFor($role)]);
+        }
+
+        case 'logout':
+            $_SESSION = [];
+            session_destroy();
+            respond(['ok' => true, 'redirect' => 'login.php']);
+
+        // ---------------- CUSTOMER: Exchange Board ----------------
+
+        case 'list': {
+            $search = trim($_GET['search'] ?? '');
+            $minQty = isset($_GET['min_qty']) && $_GET['min_qty'] !== '' ? (int) $_GET['min_qty'] : null;
+            $sortKey = $_GET['sort'] ?? 'newest';
+            $orderBy = SORT_OPTIONS[$sortKey] ?? SORT_OPTIONS['newest'];
+
+            $sql = "
+                SELECT L.ListingID, L.Crop, L.Qty, L.Notes, L.CreatedAt, G.Name AS GardenerName
+                FROM EXCHANGE_LISTING L
+                JOIN COMMUNITY_GARDENER G ON G.GardenerID = L.GardenerID
+                WHERE L.ListingID NOT IN (SELECT ListingID FROM EXCHANGE_ORDER)
+            ";
+            $params = [];
+            if ($search !== '') { $sql .= " AND L.Crop LIKE :search"; $params[':search'] = '%' . $search . '%'; }
+            if ($minQty !== null) { $sql .= " AND L.Qty >= :min_qty"; $params[':min_qty'] = $minQty; }
+            $sql .= " ORDER BY {$orderBy}";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            respond(['ok' => true, 'listings' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+        }
+
+        case 'create': {
+            $user = requireJsonRole('customer');
+            $crop = trim($_POST['crop'] ?? '');
+            $qty = $_POST['qty'] ?? '';
+            $notes = trim($_POST['notes'] ?? '');
+
+            $errors = [];
+            if ($crop === '' || mb_strlen($crop) > 60) {
+                $errors[] = 'Crop name is required (max 60 characters).';
+            } elseif (!preg_match("/^[A-Za-z\s\-']+$/u", $crop)) {
+                $errors[] = 'Crop name may only contain letters, spaces, and hyphens.';
+            }
+            if (!ctype_digit((string) $qty) || (int) $qty < 1 || (int) $qty > 1000) $errors[] = 'Quantity must be between 1 and 1000.';
+            if (mb_strlen($notes) > 200) $errors[] = 'Notes must be 200 characters or fewer.';
+            if ($errors) respond(['ok' => false, 'errors' => $errors], 422);
+
+            $stmt = $pdo->prepare("INSERT INTO EXCHANGE_LISTING (GardenerID, Crop, Qty, Notes) VALUES (?, ?, ?, ?)");
+            $stmt->execute([$user['id'], htmlspecialchars($crop, ENT_QUOTES, 'UTF-8'), (int) $qty, htmlspecialchars($notes, ENT_QUOTES, 'UTF-8')]);
+            respond(['ok' => true, 'listing_id' => $pdo->lastInsertId()]);
+        }
+
+        case 'claim': {
+            $user = requireJsonRole('customer');
+            $listingId = $_POST['listing_id'] ?? '';
+            if (!ctype_digit((string) $listingId)) respond(['ok' => false, 'error' => 'Invalid listing id.'], 422);
+
+            $check = $pdo->prepare("
+                SELECT GardenerID FROM EXCHANGE_LISTING
+                WHERE ListingID = ? AND ListingID NOT IN (SELECT ListingID FROM EXCHANGE_ORDER)
+            ");
+            $check->execute([(int) $listingId]);
+            $owner = $check->fetchColumn();
+
+            if ($owner === false) respond(['ok' => false, 'error' => 'Listing not found or already claimed.'], 404);
+            if ((int) $owner === $user['id']) respond(['ok' => false, 'error' => "You can't claim your own listing."], 403);
+
+            $pdo->prepare("INSERT INTO EXCHANGE_ORDER (ListingID, GardenerID) VALUES (?, ?)")
+                ->execute([(int) $listingId, $user['id']]);
+            respond(['ok' => true]);
+        }
+
+        // ---------------- CUSTOMER: Plot ----------------
+
+        case 'my_plot': {
+            $user = requireJsonRole('customer');
+            $plot = $pdo->prepare("SELECT PltID, Label, Status FROM PLOT WHERE GardenerID = ?");
+            $plot->execute([$user['id']]);
+            $plotRow = $plot->fetch(PDO::FETCH_ASSOC);
+
+            $pending = $pdo->prepare("
+                SELECT PA.AppID, P.Label FROM PLOT_APPLICATION PA
+                JOIN PLOT P ON P.PltID = PA.PltID
+                WHERE PA.GardenerID = ? AND PA.Status = 'Pending'
+            ");
+            $pending->execute([$user['id']]);
+
+            $available = $pdo->query("SELECT PltID, Label FROM PLOT WHERE Status = 'Available'")->fetchAll(PDO::FETCH_ASSOC);
+
+            respond([
+                'ok' => true,
+                'plot' => $plotRow ?: null,
+                'pending_application' => $pending->fetch(PDO::FETCH_ASSOC) ?: null,
+                'available_plots' => $available,
+            ]);
+        }
+
+        case 'apply_plot': {
+            $user = requireJsonRole('customer');
+            $pltId = $_POST['plt_id'] ?? '';
+            if (!ctype_digit((string) $pltId)) respond(['ok' => false, 'error' => 'Invalid plot.'], 422);
+
+            $check = $pdo->prepare("SELECT Status FROM PLOT WHERE PltID = ?");
+            $check->execute([(int) $pltId]);
+            $status = $check->fetchColumn();
+            if ($status !== 'Available') respond(['ok' => false, 'error' => 'That plot is no longer available.'], 409);
+
+            $pdo->prepare("INSERT INTO PLOT_APPLICATION (GardenerID, PltID, Status) VALUES (?, ?, 'Pending')")
+                ->execute([$user['id'], (int) $pltId]);
+            respond(['ok' => true]);
+        }
+
+        // ---------------- CUSTOMER: Crop Log ----------------
+
+        case 'my_croplog': {
+            $user = requireJsonRole('customer');
+            $stmt = $pdo->prepare("
+                SELECT L.LogID, L.CropName, L.MaintenanceNotes, L.HarvestYield, L.LoggedAt, P.Label
+                FROM CROP_LOG L JOIN PLOT P ON P.PltID = L.PltID
+                WHERE L.GardenerID = ? ORDER BY L.LoggedAt DESC
+            ");
+            $stmt->execute([$user['id']]);
+            respond(['ok' => true, 'logs' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+        }
+
+        case 'croplog_create': {
+            $user = requireJsonRole('customer');
+            $plot = $pdo->prepare("SELECT PltID FROM PLOT WHERE GardenerID = ?");
+            $plot->execute([$user['id']]);
+            $pltId = $plot->fetchColumn();
+            if (!$pltId) respond(['ok' => false, 'error' => 'You need an assigned plot before logging crops.'], 409);
+
+            $crop = trim($_POST['crop_name'] ?? '');
+            $notes = trim($_POST['notes'] ?? '');
+            $yield = trim($_POST['yield'] ?? '');
+
+            if ($crop === '' || mb_strlen($crop) > 60) respond(['ok' => false, 'error' => 'Crop name is required.'], 422);
+            if (mb_strlen($notes) > 300 || mb_strlen($yield) > 60) respond(['ok' => false, 'error' => 'Notes or yield too long.'], 422);
+
+            $pdo->prepare("INSERT INTO CROP_LOG (GardenerID, PltID, CropName, MaintenanceNotes, HarvestYield) VALUES (?, ?, ?, ?, ?)")
+                ->execute([$user['id'], $pltId, htmlspecialchars($crop, ENT_QUOTES, 'UTF-8'), htmlspecialchars($notes, ENT_QUOTES, 'UTF-8'), htmlspecialchars($yield, ENT_QUOTES, 'UTF-8')]);
+            respond(['ok' => true]);
+        }
+
+        // ---------------- CUSTOMER: Resources ----------------
+
+        case 'resources': {
+            requireJsonRole('customer');
+            $rows = $pdo->query("SELECT ResourceID, Name, TotalQty, AvailableQty FROM RESOURCE ORDER BY Name")->fetchAll(PDO::FETCH_ASSOC);
+            respond(['ok' => true, 'resources' => $rows]);
+        }
+
+        case 'resource_request': {
+            $user = requireJsonRole('customer');
+            $resourceId = $_POST['resource_id'] ?? '';
+            $qty = $_POST['qty'] ?? '';
+            if (!ctype_digit((string) $resourceId) || !ctype_digit((string) $qty) || (int) $qty < 1) {
+                respond(['ok' => false, 'error' => 'Invalid request.'], 422);
+            }
+
+            $res = $pdo->prepare("SELECT AvailableQty FROM RESOURCE WHERE ResourceID = ?");
+            $res->execute([(int) $resourceId]);
+            $available = $res->fetchColumn();
+            if ($available === false || (int) $qty > (int) $available) {
+                respond(['ok' => false, 'error' => 'Not enough of that resource available.'], 409);
+            }
+
+            $pdo->prepare("INSERT INTO RESOURCE_TXN (GardenerID, ResourceID, Qty, Status) VALUES (?, ?, ?, 'Requested')")
+                ->execute([$user['id'], (int) $resourceId, (int) $qty]);
+            respond(['ok' => true]);
+        }
+
+        case 'my_resource_requests': {
+            $user = requireJsonRole('customer');
+            $stmt = $pdo->prepare("
+                SELECT T.TxnID, R.Name, T.Qty, T.Status, T.RequestedAt
+                FROM RESOURCE_TXN T JOIN RESOURCE R ON R.ResourceID = T.ResourceID
+                WHERE T.GardenerID = ? ORDER BY T.RequestedAt DESC
+            ");
+            $stmt->execute([$user['id']]);
+            respond(['ok' => true, 'requests' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+        }
+
+        // ---------------- STAFF ----------------
+
+        case 'pending_applications': {
+            requireJsonRole('staff');
+            $rows = $pdo->query("
+                SELECT PA.AppID, G.Name AS GardenerName, P.Label, PA.AppliedAt
+                FROM PLOT_APPLICATION PA
+                JOIN COMMUNITY_GARDENER G ON G.GardenerID = PA.GardenerID
+                JOIN PLOT P ON P.PltID = PA.PltID
+                WHERE PA.Status = 'Pending' ORDER BY PA.AppliedAt ASC
+            ")->fetchAll(PDO::FETCH_ASSOC);
+            respond(['ok' => true, 'applications' => $rows]);
+        }
+
+        case 'process_application': {
+            $user = requireJsonRole('staff');
+            $appId = $_POST['app_id'] ?? '';
+            $decision = $_POST['decision'] ?? '';
+            if (!ctype_digit((string) $appId) || !in_array($decision, ['approve', 'reject'], true)) {
+                respond(['ok' => false, 'error' => 'Invalid request.'], 422);
+            }
+
+            $app = $pdo->prepare("SELECT GardenerID, PltID, Status FROM PLOT_APPLICATION WHERE AppID = ?");
+            $app->execute([(int) $appId]);
+            $row = $app->fetch(PDO::FETCH_ASSOC);
+            if (!$row || $row['Status'] !== 'Pending') respond(['ok' => false, 'error' => 'Application already processed.'], 409);
+
+            $newStatus = $decision === 'approve' ? 'Approved' : 'Rejected';
+            $pdo->prepare("UPDATE PLOT_APPLICATION SET Status = ?, CoordID = ? WHERE AppID = ?")
+                ->execute([$newStatus, $user['id'], (int) $appId]);
+
+            if ($decision === 'approve') {
+                $pdo->prepare("UPDATE PLOT SET GardenerID = ?, Status = 'Occupied' WHERE PltID = ?")
+                    ->execute([$row['GardenerID'], $row['PltID']]);
+            }
+            respond(['ok' => true]);
+        }
+
+        case 'pending_resource_txns': {
+            requireJsonRole('staff');
+            $rows = $pdo->query("
+                SELECT T.TxnID, G.Name AS GardenerName, R.Name AS ResourceName, T.Qty, T.RequestedAt
+                FROM RESOURCE_TXN T
+                JOIN COMMUNITY_GARDENER G ON G.GardenerID = T.GardenerID
+                JOIN RESOURCE R ON R.ResourceID = T.ResourceID
+                WHERE T.Status = 'Requested' ORDER BY T.RequestedAt ASC
+            ")->fetchAll(PDO::FETCH_ASSOC);
+            respond(['ok' => true, 'transactions' => $rows]);
+        }
+
+        case 'process_resource_txn': {
+            $user = requireJsonRole('staff');
+            $txnId = $_POST['txn_id'] ?? '';
+            $decision = $_POST['decision'] ?? '';
+            if (!ctype_digit((string) $txnId) || !in_array($decision, ['approve', 'reject'], true)) {
+                respond(['ok' => false, 'error' => 'Invalid request.'], 422);
+            }
+
+            $txn = $pdo->prepare("SELECT ResourceID, Qty, Status FROM RESOURCE_TXN WHERE TxnID = ?");
+            $txn->execute([(int) $txnId]);
+            $row = $txn->fetch(PDO::FETCH_ASSOC);
+            if (!$row || $row['Status'] !== 'Requested') respond(['ok' => false, 'error' => 'Already processed.'], 409);
+
+            if ($decision === 'approve') {
+                $res = $pdo->prepare("SELECT AvailableQty FROM RESOURCE WHERE ResourceID = ?");
+                $res->execute([$row['ResourceID']]);
+                $avail = (int) $res->fetchColumn();
+                if ($row['Qty'] > $avail) respond(['ok' => false, 'error' => 'Not enough stock left to approve.'], 409);
+
+                $pdo->prepare("UPDATE RESOURCE SET AvailableQty = AvailableQty - ? WHERE ResourceID = ?")
+                    ->execute([$row['Qty'], $row['ResourceID']]);
+                $pdo->prepare("UPDATE RESOURCE_TXN SET Status = 'Approved', CoordID = ? WHERE TxnID = ?")
+                    ->execute([$user['id'], (int) $txnId]);
+            } else {
+                $pdo->prepare("UPDATE RESOURCE_TXN SET Status = 'Rejected', CoordID = ? WHERE TxnID = ?")
+                    ->execute([$user['id'], (int) $txnId]);
+            }
+            respond(['ok' => true]);
+        }
+
+        case 'all_plots': {
+            requireJsonRole('staff');
+            $rows = $pdo->query("
+                SELECT P.PltID, P.Label, P.Status, G.Name AS GardenerName
+                FROM PLOT P LEFT JOIN COMMUNITY_GARDENER G ON G.GardenerID = P.GardenerID
+                ORDER BY P.Label
+            ")->fetchAll(PDO::FETCH_ASSOC);
+            respond(['ok' => true, 'plots' => $rows]);
+        }
+
+        // ---------------- ADMIN ----------------
+
+        case 'stats': {
+            requireJsonRole('admin');
+            $count = fn($sql) => (int) $pdo->query($sql)->fetchColumn();
+            respond(['ok' => true, 'stats' => [
+                'gardeners' => $count("SELECT COUNT(*) FROM COMMUNITY_GARDENER"),
+                'coordinators' => $count("SELECT COUNT(*) FROM GARDEN_COORDINATOR"),
+                'plots_occupied' => $count("SELECT COUNT(*) FROM PLOT WHERE Status = 'Occupied'"),
+                'plots_available' => $count("SELECT COUNT(*) FROM PLOT WHERE Status = 'Available'"),
+                'pending_applications' => $count("SELECT COUNT(*) FROM PLOT_APPLICATION WHERE Status = 'Pending'"),
+                'pending_resource_txns' => $count("SELECT COUNT(*) FROM RESOURCE_TXN WHERE Status = 'Requested'"),
+                'active_listings' => $count("SELECT COUNT(*) FROM EXCHANGE_LISTING WHERE ListingID NOT IN (SELECT ListingID FROM EXCHANGE_ORDER)"),
+                'completed_trades' => $count("SELECT COUNT(*) FROM EXCHANGE_ORDER"),
+            ]]);
+        }
+
+        case 'accounts': {
+            requireJsonRole('admin');
+            $gardeners = $pdo->query("SELECT GardenerID AS id, Name, Email FROM COMMUNITY_GARDENER ORDER BY Name")->fetchAll(PDO::FETCH_ASSOC);
+            $coordinators = $pdo->query("SELECT CoordID AS id, Name, Email, Shift FROM GARDEN_COORDINATOR ORDER BY Name")->fetchAll(PDO::FETCH_ASSOC);
+            respond(['ok' => true, 'gardeners' => $gardeners, 'coordinators' => $coordinators]);
+        }
+
+        case 'add_coordinator': {
+            requireJsonRole('admin');
+            $name = trim($_POST['name'] ?? '');
+            $email = trim($_POST['email'] ?? '');
+            $password = $_POST['password'] ?? '';
+            $shift = trim($_POST['shift'] ?? 'Morning');
+
+            $errors = [];
+            if ($name === '' || mb_strlen($name) > 80) $errors[] = 'Name is required.';
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'A valid email is required.';
+            if (mb_strlen($password) < 6) $errors[] = 'Password must be at least 6 characters.';
+            if (!in_array($shift, ['Morning', 'Afternoon', 'Evening'], true)) $errors[] = 'Invalid shift.';
+            if ($errors) respond(['ok' => false, 'errors' => $errors], 422);
+
+            try {
+                $pdo->prepare("INSERT INTO GARDEN_COORDINATOR (Name, Email, PasswordHash, Shift) VALUES (?, ?, ?, ?)")
+                    ->execute([htmlspecialchars($name, ENT_QUOTES, 'UTF-8'), $email, password_hash($password, PASSWORD_BCRYPT), $shift]);
+            } catch (PDOException $e) {
+                respond(['ok' => false, 'error' => 'That email is already in use.'], 409);
+            }
+            respond(['ok' => true]);
+        }
+
+        case 'delete_account': {
+            requireJsonRole('admin');
+            $table = $_POST['table'] ?? '';
+            $id = $_POST['id'] ?? '';
+            $map = ['gardener' => ['COMMUNITY_GARDENER', 'GardenerID'], 'coordinator' => ['GARDEN_COORDINATOR', 'CoordID']];
+            if (!isset($map[$table]) || !ctype_digit((string) $id)) respond(['ok' => false, 'error' => 'Invalid request.'], 422);
+
+            [$tbl, $col] = $map[$table];
+            $pdo->prepare("DELETE FROM $tbl WHERE $col = ?")->execute([(int) $id]);
+            respond(['ok' => true]);
+        }
+
+        default:
+            respond(['ok' => false, 'error' => 'Unknown action.'], 400);
+    }
+} catch (Throwable $e) {
+    respond(['ok' => false, 'error' => 'Server error.'], 500);
+}
