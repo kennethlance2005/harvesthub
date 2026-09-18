@@ -23,10 +23,17 @@ $navTitle = 'Community Gardener Dashboard';
 
   <div class="grid grid-3">
 
-    <div class="panel">
-      <p class="panel-title">My Plot</p>
-      <div id="plot-status"></div>
-    </div>
+  <div class="panel">
+      <p class="panel-title">Current Plots</p>
+    <div id="plot-status"></div>
+
+    <button type="button" class="btn btn-ghost btn-block" id="request-plot-btn" style="margin-top: 16px;">
+    Request for more plots
+    </button>
+    <div id="available-plots" hidden style="margin-top: 12px;"></div>
+    <p class="form-alert" id="plot-request-alert" hidden></p>
+    <p class="form-success" id="plot-request-success" hidden></p>
+  </div>
 
     <div class="panel">
       <p class="panel-title">Crop Lifecycle Log</p>
@@ -144,8 +151,7 @@ $navTitle = 'Community Gardener Dashboard';
 </div>
 
 <div class="toast-container" id="toast-container" aria-live="polite"></div>
-<script src="assets/customer.js"></script>
-</body>
 <script src="assets/app.js"></script>
 <script src="assets/customer.js"></script>
+</body>
 </html>
