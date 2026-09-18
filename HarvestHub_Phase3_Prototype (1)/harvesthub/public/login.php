@@ -19,37 +19,52 @@ if ($user = currentUser()) {
 <body>
 <div class="login-shell">
   <div class="login-card">
+
     <div class="login-brand">
       <span class="sprout">🌱</span>
       <h1>HarvestHub</h1>
-      <p>Community Garden &amp; Exchange System</p>
     </div>
 
-    <div class="login-panel">
-      <div class="role-tabs" id="role-tabs">
-        <button type="button" class="role-tab active" data-role="customer">Gardener</button>
-        <button type="button" class="role-tab" data-role="staff">Coordinator</button>
-        <button type="button" class="role-tab" data-role="admin">Admin</button>
+    <h2 class="login-title">Login</h2>
+
+    <div class="role-tabs" id="role-tabs">
+      <button type="button" class="role-tab active" data-role="customer">Gardener</button>
+      <button type="button" class="role-tab" data-role="staff">Coordinator</button>
+      <button type="button" class="role-tab" data-role="admin">Admin</button>
+    </div>
+
+    <form id="login-form" novalidate>
+      <input type="hidden" id="role" name="role" value="customer">
+
+      <div class="field field-underline">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required>
       </div>
 
-      <form id="login-form" novalidate>
-        <input type="hidden" id="role" name="role" value="customer">
-        <div class="field">
-          <label for="email">Email</label>
-          <input type="email" id="email" name="email" required>
-        </div>
-        <div class="field">
-          <label for="password">Password</label>
-          <input type="password" id="password" name="password" required>
-        </div>
-        <button type="submit" class="btn btn-accent btn-block">Log In</button>
-        <p class="form-alert" id="login-alert" role="alert" hidden></p>
-      </form>
+      <div class="field field-underline">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required>
+      </div>
 
-      <p class="demo-hint" id="demo-hint">
-        Demo account: <code>maria@harvesthub.test</code> / <code>demo1234</code>
-      </p>
-    </div>
+      <div class="login-row">
+        <label class="remember-me">
+          <input type="checkbox" id="remember">
+          Remember Me
+        </label>
+        <a href="#" class="forgot-link">Forgot Password</a>
+      </div>
+
+      <button type="submit" class="btn btn-light btn-block">Log in</button>
+      <p class="form-alert" id="login-alert" role="alert" hidden></p>
+    </form>
+
+    <p class="demo-hint" id="demo-hint">
+      Demo account: <code>maria@harvesthub.test</code> / <code>demo1234</code>
+    </p>
+
+    <p class="signup-hint">
+      New to HarvestHub? <a href="register.php" class="signup-link">Create an Account</a>
+    </p>
   </div>
 </div>
 

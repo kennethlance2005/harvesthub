@@ -20,7 +20,52 @@ function getDb(): PDO {
         seedDatabase($pdo);
     }
 
+    ensureSignupRequestsTable($pdo);
+    ensureGardenerProfileColumns($pdo);
+
     return $pdo;
+}
+
+/**
+ * Public sign-up requests ("Create an Account" on the login page).
+ * A request sits here as 'Pending' until an admin approves or rejects
+ * it — approval is what actually creates the COMMUNITY_GARDENER row.
+ * Uses CREATE TABLE IF NOT EXISTS so it safely migrates existing
+ * pre-Phase-3 database files, not just brand-new ones.
+ */
+function ensureSignupRequestsTable(PDO $pdo): void {
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS SIGNUP_REQUEST (
+            RequestID INTEGER PRIMARY KEY AUTOINCREMENT,
+            FirstName TEXT NOT NULL,
+            LastName TEXT NOT NULL,
+            Age INTEGER NOT NULL,
+            Location TEXT NOT NULL,
+            Email TEXT NOT NULL,
+            PasswordHash TEXT NOT NULL,
+            Status TEXT NOT NULL DEFAULT 'Pending',
+            RequestedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            ReviewedAt TEXT,
+            ReviewedBy INTEGER
+        );
+    ");
+}
+
+/**
+ * Adds Age / Location to COMMUNITY_GARDENER if they aren't there yet,
+ * so approved sign-up requests have somewhere to land. Safe to run on
+ * every request — checks PRAGMA table_info first since SQLite doesn't
+ * support "ADD COLUMN IF NOT EXISTS".
+ */
+function ensureGardenerProfileColumns(PDO $pdo): void {
+    $cols = $pdo->query("PRAGMA table_info(COMMUNITY_GARDENER)")->fetchAll(PDO::FETCH_ASSOC);
+    $names = array_column($cols, 'name');
+    if (!in_array('Age', $names, true)) {
+        $pdo->exec("ALTER TABLE COMMUNITY_GARDENER ADD COLUMN Age INTEGER");
+    }
+    if (!in_array('Location', $names, true)) {
+        $pdo->exec("ALTER TABLE COMMUNITY_GARDENER ADD COLUMN Location TEXT");
+    }
 }
 
 function seedDatabase(PDO $pdo): void {
