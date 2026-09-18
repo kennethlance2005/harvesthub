@@ -12,6 +12,13 @@ form.addEventListener('submit', async (e) => {
 
   const password = document.getElementById('password').value;
   const confirmPassword = document.getElementById('confirm-password').value;
+  const role = document.getElementById('role').value;
+
+  if (!role) {
+    alertEl.textContent = 'Please select a role.';
+    alertEl.hidden = false;
+    return;
+  }
 
   if (password !== confirmPassword) {
     alertEl.textContent = 'Passwords do not match.';
@@ -28,6 +35,7 @@ form.addEventListener('submit', async (e) => {
     email: document.getElementById('email').value.trim(),
     password: password,
     confirm_password: confirmPassword,
+    role: role,
   });
 
   const submitBtn = form.querySelector('button[type="submit"]');

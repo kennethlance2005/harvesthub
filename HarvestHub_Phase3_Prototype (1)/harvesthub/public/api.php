@@ -114,6 +114,55 @@ try {
             session_destroy();
             respond(['ok' => true, 'redirect' => 'login.php']);
 
+        case 'signup_request': {
+            $firstName = trim($_POST['first_name'] ?? '');
+            $lastName = trim($_POST['last_name'] ?? '');
+            $age = $_POST['age'] ?? '';
+            $location = trim($_POST['location'] ?? '');
+            $email = trim($_POST['email'] ?? '');
+            $password = $_POST['password'] ?? '';
+            $confirmPassword = $_POST['confirm_password'] ?? '';
+            $role = $_POST['role'] ?? '';
+
+            $errors = [];
+            if ($firstName === '' || mb_strlen($firstName) > 60) $errors[] = 'First name is required.';
+            if ($lastName === '' || mb_strlen($lastName) > 60) $errors[] = 'Last name is required.';
+            if (!ctype_digit((string) $age) || (int) $age < 13 || (int) $age > 120) $errors[] = 'Age must be between 13 and 120.';
+            if ($location === '' || mb_strlen($location) > 100) $errors[] = 'Location is required.';
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'A valid email is required.';
+            if (mb_strlen($password) < 6) $errors[] = 'Password must be at least 6 characters.';
+            if ($password !== $confirmPassword) $errors[] = 'Passwords do not match.';
+            if (!in_array($role, ['customer', 'staff'], true)) $errors[] = 'Please choose a role.';
+            if ($errors) respond(['ok' => false, 'errors' => $errors], 422);
+
+            // An email already active as any account, or already sitting
+            // in the queue as a pending request, can't submit another one.
+            $inUse = $pdo->prepare("
+                SELECT 1 FROM COMMUNITY_GARDENER WHERE Email = ?
+                UNION SELECT 1 FROM GARDEN_COORDINATOR WHERE Email = ?
+                UNION SELECT 1 FROM SYSTEM_ADMINISTRATOR WHERE Email = ?
+                UNION SELECT 1 FROM SIGNUP_REQUEST WHERE Email = ? AND Status = 'Pending'
+            ");
+            $inUse->execute([$email, $email, $email, $email]);
+            if ($inUse->fetchColumn()) {
+                respond(['ok' => false, 'error' => 'That email already has an account or a pending request.'], 409);
+            }
+
+            $pdo->prepare("
+                INSERT INTO SIGNUP_REQUEST (FirstName, LastName, Age, Location, Email, PasswordHash, Role)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ")->execute([
+                htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'),
+                htmlspecialchars($lastName, ENT_QUOTES, 'UTF-8'),
+                (int) $age,
+                htmlspecialchars($location, ENT_QUOTES, 'UTF-8'),
+                $email,
+                password_hash($password, PASSWORD_BCRYPT),
+                $role,
+            ]);
+            respond(['ok' => true]);
+        }
+
         // ---------------- CUSTOMER: Exchange Board ----------------
 
         case 'list': {
@@ -399,6 +448,7 @@ try {
                 'plots_available' => $count("SELECT COUNT(*) FROM PLOT WHERE Status = 'Available'"),
                 'pending_applications' => $count("SELECT COUNT(*) FROM PLOT_APPLICATION WHERE Status = 'Pending'"),
                 'pending_resource_txns' => $count("SELECT COUNT(*) FROM RESOURCE_TXN WHERE Status = 'Requested'"),
+                'pending_signups' => $count("SELECT COUNT(*) FROM SIGNUP_REQUEST WHERE Status = 'Pending'"),
                 'active_listings' => $count("SELECT COUNT(*) FROM EXCHANGE_LISTING WHERE ListingID NOT IN (SELECT ListingID FROM EXCHANGE_ORDER)"),
                 'completed_trades' => $count("SELECT COUNT(*) FROM EXCHANGE_ORDER"),
             ]]);
@@ -409,6 +459,58 @@ try {
             $gardeners = $pdo->query("SELECT GardenerID AS id, Name, Email FROM COMMUNITY_GARDENER ORDER BY Name")->fetchAll(PDO::FETCH_ASSOC);
             $coordinators = $pdo->query("SELECT CoordID AS id, Name, Email, Shift FROM GARDEN_COORDINATOR ORDER BY Name")->fetchAll(PDO::FETCH_ASSOC);
             respond(['ok' => true, 'gardeners' => $gardeners, 'coordinators' => $coordinators]);
+        }
+
+        case 'pending_signups': {
+            requireJsonRole('admin');
+            $rows = $pdo->query("
+                SELECT RequestID, FirstName, LastName, Age, Location, Email, Role, RequestedAt
+                FROM SIGNUP_REQUEST WHERE Status = 'Pending' ORDER BY RequestedAt ASC
+            ")->fetchAll(PDO::FETCH_ASSOC);
+            respond(['ok' => true, 'requests' => $rows]);
+        }
+
+        case 'process_signup': {
+            $user = requireJsonRole('admin');
+            $requestId = $_POST['request_id'] ?? '';
+            $decision = $_POST['decision'] ?? '';
+            if (!ctype_digit((string) $requestId) || !in_array($decision, ['approve', 'reject'], true)) {
+                respond(['ok' => false, 'error' => 'Invalid request.'], 422);
+            }
+
+            $stmt = $pdo->prepare("SELECT * FROM SIGNUP_REQUEST WHERE RequestID = ?");
+            $stmt->execute([(int) $requestId]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row || $row['Status'] !== 'Pending') respond(['ok' => false, 'error' => 'Already processed.'], 409);
+
+            if ($decision === 'approve') {
+                // Re-check the email hasn't been taken since the request came in.
+                $table = $row['Role'] === 'staff' ? 'GARDEN_COORDINATOR' : 'COMMUNITY_GARDENER';
+                $dupe = $pdo->prepare("SELECT 1 FROM $table WHERE Email = ?");
+                $dupe->execute([$row['Email']]);
+                if ($dupe->fetchColumn()) {
+                    respond(['ok' => false, 'error' => 'That email is already in use.'], 409);
+                }
+
+                $name = trim($row['FirstName'] . ' ' . $row['LastName']);
+                try {
+                    if ($row['Role'] === 'staff') {
+                        $pdo->prepare("INSERT INTO GARDEN_COORDINATOR (Name, Email, PasswordHash, Shift) VALUES (?, ?, ?, 'Morning')")
+                            ->execute([$name, $row['Email'], $row['PasswordHash']]);
+                    } else {
+                        $pdo->prepare("INSERT INTO COMMUNITY_GARDENER (Name, Email, PasswordHash, Age, Location) VALUES (?, ?, ?, ?, ?)")
+                            ->execute([$name, $row['Email'], $row['PasswordHash'], $row['Age'], $row['Location']]);
+                    }
+                } catch (PDOException $e) {
+                    respond(['ok' => false, 'error' => 'That email is already in use.'], 409);
+                }
+            }
+
+            $newStatus = $decision === 'approve' ? 'Approved' : 'Rejected';
+            $pdo->prepare("UPDATE SIGNUP_REQUEST SET Status = ?, ReviewedAt = datetime('now'), ReviewedBy = ? WHERE RequestID = ?")
+                ->execute([$newStatus, $user['id'], (int) $requestId]);
+
+            respond(['ok' => true]);
         }
 
         case 'add_coordinator': {

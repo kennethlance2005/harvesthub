@@ -25,6 +25,12 @@ $navTitle = 'System Administrator Dashboard';
     <div class="stat-grid" id="stats-row" style="margin-bottom: 0;"></div>
   </div>
 
+  <div class="panel" style="margin-bottom: 24px;">
+    <p class="panel-title">Pending Account Requests</p>
+    <div class="pending-request-list" id="signups-list"></div>
+    <p class="text-muted" id="signups-empty" hidden>No pending account requests.</p>
+  </div>
+
   <div class="grid" style="grid-template-columns: 2fr 1fr;">
     <div>
       <div class="panel" style="margin-bottom: 24px;">
@@ -95,4 +101,3 @@ $navTitle = 'System Administrator Dashboard';
 <script src="assets/admin.js"></script>
 </body>
 </html>
-looks promising looks promising the speed drown what kind of grid

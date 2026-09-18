@@ -59,6 +59,15 @@ if ($user = currentUser()) {
         <input type="email" id="email" name="email" autocomplete="email" required>
       </div>
 
+      <div class="field field-underline">
+        <label for="role">I am a</label>
+        <select id="role" name="role" required>
+          <option value="" disabled selected>Select a role&hellip;</option>
+          <option value="customer">Community Gardener</option>
+          <option value="staff">Garden Coordinator</option>
+        </select>
+      </div>
+
       <div class="field-row">
         <div class="field field-underline">
           <label for="password">Password</label>
