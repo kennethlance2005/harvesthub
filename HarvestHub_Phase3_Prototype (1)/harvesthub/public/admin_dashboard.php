@@ -25,64 +25,33 @@ $navTitle = 'System Administrator Dashboard';
     <div class="stat-grid" id="stats-row" style="margin-bottom: 0;"></div>
   </div>
 
+  <!-- Pending Account Requests Panel -->
   <div class="panel" style="margin-bottom: 24px;">
     <p class="panel-title">Pending Account Requests</p>
     <div class="pending-request-list" id="signups-list"></div>
     <p class="text-muted" id="signups-empty" hidden>No pending account requests.</p>
   </div>
 
-  <div class="grid" style="grid-template-columns: 2fr 1fr;">
-    <div>
-      <div class="panel" style="margin-bottom: 24px;">
-        <p class="panel-title">Community Gardeners</p>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead><tr><th>Name</th><th>Email</th><th></th></tr></thead>
-            <tbody id="gardeners-table"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="panel">
-        <p class="panel-title">Garden Coordinators</p>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead><tr><th>Name</th><th>Email</th><th>Shift</th><th></th></tr></thead>
-            <tbody id="coordinators-table"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <p class="panel-title">Add Garden Coordinator</p>
-      <form id="add-coord-form" novalidate>
-        <div class="field">
-          <label for="coord-name">Name</label>
-          <input type="text" id="coord-name" required>
-        </div>
-        <div class="field">
-          <label for="coord-email">Email</label>
-          <input type="email" id="coord-email" required>
-        </div>
-        <div class="field">
-          <label for="coord-password">Temporary Password</label>
-          <input type="password" id="coord-password" minlength="6" required>
-        </div>
-        <div class="field">
-          <label for="coord-shift">Shift</label>
-          <select id="coord-shift" style="width: 100%;">
-            <option value="Morning">Morning</option>
-            <option value="Afternoon">Afternoon</option>
-            <option value="Evening">Evening</option>
-          </select>
-        </div>
-        <button type="submit" class="btn btn-accent btn-block">Create Account</button>
-        <p class="form-alert" id="coord-alert" hidden></p>
-        <p class="form-success" id="coord-success" hidden></p>
-      </form>
+  <div class="panel" style="margin-bottom: 24px;">
+    <p class="panel-title">Community Gardeners</p>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Name</th><th>Email</th><th></th></tr></thead>
+        <tbody id="gardeners-table"></tbody>
+      </table>
     </div>
   </div>
+
+  <div class="panel">
+    <p class="panel-title">Garden Coordinators</p>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Name</th><th>Email</th><th>Shift</th><th></th></tr></thead>
+        <tbody id="coordinators-table"></tbody>
+      </table>
+    </div>
+  </div>
+
 </main>
 
 <!-- Delete confirmation modal -->

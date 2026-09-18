@@ -33,47 +33,48 @@ if ($user = currentUser()) {
     <form id="register-form" novalidate>
 
       <div class="field-row">
-        <div class="field field-underline">
+        <div class="field">
           <label for="first-name">First Name</label>
           <input type="text" id="first-name" name="first_name" autocomplete="given-name" required>
         </div>
-        <div class="field field-underline">
+        <div class="field">
           <label for="last-name">Last Name</label>
           <input type="text" id="last-name" name="last_name" autocomplete="family-name" required>
         </div>
       </div>
 
       <div class="field-row">
-        <div class="field field-underline">
+        <div class="field">
           <label for="age">Age</label>
           <input type="number" id="age" name="age" min="13" max="120" autocomplete="off" required>
         </div>
-        <div class="field field-underline">
+        <div class="field">
           <label for="location">Location</label>
           <input type="text" id="location" name="location" autocomplete="address-level2" required>
         </div>
       </div>
 
-      <div class="field field-underline">
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" autocomplete="email" required>
-      </div>
-
-      <div class="field field-underline">
-        <label for="role">I am a</label>
-        <select id="role" name="role" required>
-          <option value="" disabled selected>Select a role&hellip;</option>
-          <option value="customer">Community Gardener</option>
-          <option value="staff">Garden Coordinator</option>
-        </select>
+      <div class="field-row">
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <label for="role">I am a</label>
+          <select id="role" name="role" required>
+            <option value="" disabled selected style="background: #1e3a2b; color: #fff;">Select a role&hellip;</option>
+            <option value="customer" style="background: #1e3a2b; color: #fff;">Community Gardener</option>
+            <option value="staff" style="background: #1e3a2b; color: #fff;">Garden Coordinator</option>
+          </select>
+        </div>
       </div>
 
       <div class="field-row">
-        <div class="field field-underline">
+        <div class="field">
           <label for="password">Password</label>
           <input type="password" id="password" name="password" autocomplete="new-password" minlength="6" required>
         </div>
-        <div class="field field-underline">
+        <div class="field">
           <label for="confirm-password">Confirm Password</label>
           <input type="password" id="confirm-password" name="confirm_password" autocomplete="new-password" minlength="6" required>
         </div>

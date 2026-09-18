@@ -26,6 +26,7 @@ async function loadStats() {
     ['Plots Available', data.stats.plots_available],
     ['Pending Applications', data.stats.pending_applications],
     ['Pending Resource Requests', data.stats.pending_resource_txns],
+    ['Pending Signups', data.stats.pending_signups || 0],
     ['Active Listings', data.stats.active_listings],
     ['Completed Trades', data.stats.completed_trades],
   ];
@@ -67,6 +68,71 @@ async function loadAccounts() {
   document.querySelectorAll('.delete-btn').forEach(btn => {
     btn.addEventListener('click', () => openDeleteModal(btn.dataset.table, btn.dataset.id, btn.dataset.name));
   });
+}
+
+// ---------- Pending Account Requests ----------
+
+async function loadSignupRequests() {
+  const res = await fetch('api.php?action=pending_signups');
+  const data = await res.json();
+  if (!data.ok) return;
+
+  const tbody = document.getElementById('signups-list');
+  const emptyEl = document.getElementById('signups-empty');
+
+  if (data.requests.length === 0) {
+    tbody.innerHTML = '';
+    emptyEl.hidden = false;
+    return;
+  }
+  emptyEl.hidden = true;
+
+  tbody.innerHTML = `
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Age</th><th>Location</th><th></th></tr></thead>
+        <tbody>
+          ${data.requests.map(r => `
+            <tr>
+              <td>${escapeHtml(r.FirstName + ' ' + r.LastName)}</td>
+              <td>${escapeHtml(r.Email)}</td>
+              <td>${r.Role === 'staff' ? 'Coordinator' : 'Gardener'}</td>
+              <td>${escapeHtml(String(r.Age))}</td>
+              <td>${escapeHtml(r.Location)}</td>
+              <td class="text-right" style="white-space: nowrap;">
+                <button class="btn btn-sm approve-signup" style="background: var(--green-700); color: var(--white);" data-id="${r.RequestID}">Approve</button>
+                <button class="btn btn-sm reject-signup" style="background: var(--danger); color: var(--white);" data-id="${r.RequestID}">Reject</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  tbody.querySelectorAll('.approve-signup').forEach(btn => {
+    btn.addEventListener('click', () => processSignup(btn.dataset.id, 'approve'));
+  });
+  tbody.querySelectorAll('.reject-signup').forEach(btn => {
+    btn.addEventListener('click', () => processSignup(btn.dataset.id, 'reject'));
+  });
+}
+
+async function processSignup(requestId, decision) {
+  const res = await fetch('api.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ action: 'process_signup', request_id: requestId, decision }),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    showToast(`Account request ${decision === 'approve' ? 'approved & created' : 'rejected'}.`, 'success');
+    loadSignupRequests();
+    loadAccounts();
+    loadStats();
+  } else {
+    showToast(data.error || 'Could not process request.', 'danger');
+  }
 }
 
 // ---------- Delete confirmation modal ----------
@@ -111,43 +177,8 @@ deleteConfirmBtn.addEventListener('click', async () => {
   }
 });
 
-// ---------- Add coordinator ----------
-
-document.getElementById('add-coord-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const alertEl = document.getElementById('coord-alert');
-  const successEl = document.getElementById('coord-success');
-  alertEl.hidden = true;
-  successEl.hidden = true;
-
-  const formData = new URLSearchParams({
-    action: 'add_coordinator',
-    name: document.getElementById('coord-name').value.trim(),
-    email: document.getElementById('coord-email').value.trim(),
-    password: document.getElementById('coord-password').value,
-    shift: document.getElementById('coord-shift').value,
-  });
-
-  const res = await fetch('api.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: formData,
-  });
-  const data = await res.json();
-
-  if (data.ok) {
-    successEl.textContent = 'Coordinator account created.';
-    successEl.hidden = false;
-    e.target.reset();
-    loadAccounts();
-    loadStats();
-  } else {
-    alertEl.textContent = (data.errors || [data.error]).join(' ');
-    alertEl.hidden = false;
-  }
-});
-
 document.addEventListener('DOMContentLoaded', () => {
   loadStats();
   loadAccounts();
+  loadSignupRequests();
 });
