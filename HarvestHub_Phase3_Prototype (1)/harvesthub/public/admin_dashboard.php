@@ -28,12 +28,22 @@ $navTitle = 'System Administrator Dashboard';
   <!-- Pending Account Requests Panel -->
   <div class="panel" style="margin-bottom: 24px;">
     <p class="panel-title">Pending Account Requests</p>
+    <div class="table-search">
+      <label class="sr-only" for="pending-signups-search">Search pending account requests by name</label>
+      <input type="search" id="pending-signups-search" placeholder="Search by name">
+      <button type="button" class="btn btn-ghost btn-sm" data-search-target="pending-signups-search" data-table-target="pending-signups-table">Search</button>
+    </div>
     <div class="pending-request-list" id="signups-list"></div>
     <p class="text-muted" id="signups-empty" hidden>No pending account requests.</p>
   </div>
 
   <div class="panel" style="margin-bottom: 24px;">
     <p class="panel-title">Community Gardeners</p>
+    <div class="table-search">
+      <label class="sr-only" for="gardeners-search">Search community gardeners by name</label>
+      <input type="search" id="gardeners-search" placeholder="Search by name">
+      <button type="button" class="btn btn-ghost btn-sm" data-search-target="gardeners-search" data-table-target="gardeners-table">Search</button>
+    </div>
     <div class="table-wrap">
       <table class="data-table">
         <thead><tr><th>Name</th><th>Email</th><th></th></tr></thead>
@@ -44,6 +54,11 @@ $navTitle = 'System Administrator Dashboard';
 
   <div class="panel">
     <p class="panel-title">Garden Coordinators</p>
+    <div class="table-search">
+      <label class="sr-only" for="coordinators-search">Search garden coordinators by name</label>
+      <input type="search" id="coordinators-search" placeholder="Search by name">
+      <button type="button" class="btn btn-ghost btn-sm" data-search-target="coordinators-search" data-table-target="coordinators-table">Search</button>
+    </div>
     <div class="table-wrap">
       <table class="data-table">
         <thead><tr><th>Name</th><th>Email</th><th>Shift</th><th></th></tr></thead>
@@ -53,6 +68,20 @@ $navTitle = 'System Administrator Dashboard';
   </div>
 
 </main>
+
+<footer class="site-footer">
+  <div class="wrap footer-row">
+    <div>
+      <p class="wordmark wordmark-light">HarvestHub</p>
+      <p class="footer-tagline">A produce exchange board for gardeners who'd rather share than waste it.</p>
+    </div>
+    <div class="footer-meta">
+      <p>Phase 3 prototype — Produce Exchange Board module</p>
+      <p>Built with PHP, SQLite, and vanilla JavaScript</p>
+    </div>
+  </div>
+</footer>
+
 
 <!-- Delete confirmation modal -->
 <div class="modal-overlay" id="delete-modal" hidden>

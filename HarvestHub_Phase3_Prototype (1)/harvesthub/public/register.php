@@ -50,7 +50,26 @@ if ($user = currentUser()) {
         </div>
         <div class="field">
           <label for="location">Location</label>
-          <input type="text" id="location" name="location" autocomplete="address-level2" required>
+          <select id="location" name="location" autocomplete="address-level2" required>
+            <option value="" disabled selected style="background: #1e3a2b; color: #fff;">Select your city&hellip;</option>
+            <option value="Caloocan" style="background: #1e3a2b; color: #fff;">Caloocan</option>
+            <option value="Las Piñas" style="background: #1e3a2b; color: #fff;">Las Piñas</option>
+            <option value="Makati" style="background: #1e3a2b; color: #fff;">Makati</option>
+            <option value="Malabon" style="background: #1e3a2b; color: #fff;">Malabon</option>
+            <option value="Mandaluyong" style="background: #1e3a2b; color: #fff;">Mandaluyong</option>
+            <option value="Manila" style="background: #1e3a2b; color: #fff;">Manila</option>
+            <option value="Marikina" style="background: #1e3a2b; color: #fff;">Marikina</option>
+            <option value="Muntinlupa" style="background: #1e3a2b; color: #fff;">Muntinlupa</option>
+            <option value="Navotas" style="background: #1e3a2b; color: #fff;">Navotas</option>
+            <option value="Parañaque" style="background: #1e3a2b; color: #fff;">Parañaque</option>
+            <option value="Pasay" style="background: #1e3a2b; color: #fff;">Pasay</option>
+            <option value="Pasig" style="background: #1e3a2b; color: #fff;">Pasig</option>
+            <option value="Pateros" style="background: #1e3a2b; color: #fff;">Pateros</option>
+            <option value="Quezon City" style="background: #1e3a2b; color: #fff;">Quezon City</option>
+            <option value="San Juan" style="background: #1e3a2b; color: #fff;">San Juan</option>
+            <option value="Taguig" style="background: #1e3a2b; color: #fff;">Taguig</option>
+            <option value="Valenzuela" style="background: #1e3a2b; color: #fff;">Valenzuela</option>
+          </select>
         </div>
       </div>
 

@@ -67,6 +67,12 @@ const SORT_OPTIONS = [
     'qty_low'  => 'L.Qty ASC',
 ];
 
+const NCR_CITIES = [
+    'Caloocan', 'Las Piñas', 'Makati', 'Malabon', 'Mandaluyong', 'Manila',
+    'Marikina', 'Muntinlupa', 'Navotas', 'Parañaque', 'Pasay', 'Pasig',
+    'Quezon City', 'San Juan', 'Taguig', 'Valenzuela',
+];
+
 try {
     switch ($action) {
 
@@ -128,7 +134,7 @@ try {
             if ($firstName === '' || mb_strlen($firstName) > 60) $errors[] = 'First name is required.';
             if ($lastName === '' || mb_strlen($lastName) > 60) $errors[] = 'Last name is required.';
             if (!ctype_digit((string) $age) || (int) $age < 13 || (int) $age > 120) $errors[] = 'Age must be between 13 and 120.';
-            if ($location === '' || mb_strlen($location) > 100) $errors[] = 'Location is required.';
+            if (!in_array($location, NCR_CITIES, true)) $errors[] = 'Please choose a valid NCR city.';
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'A valid email is required.';
             if (mb_strlen($password) < 6) $errors[] = 'Password must be at least 6 characters.';
             if ($password !== $confirmPassword) $errors[] = 'Passwords do not match.';
@@ -237,7 +243,7 @@ try {
             $plots = $plot->fetchAll(PDO::FETCH_ASSOC);
 
             $pending = $pdo->prepare("
-                SELECT PA.AppID, P.Label FROM PLOT_APPLICATION PA
+                SELECT PA.AppID, P.Label, PA.RequestType FROM PLOT_APPLICATION PA
                 JOIN PLOT P ON P.PltID = PA.PltID
                 WHERE PA.GardenerID = ? AND PA.Status = 'Pending'
             ");
@@ -253,6 +259,30 @@ try {
             ]);
         }
 
+        case 'request_plot_unassignment': {
+            $user = requireJsonRole('customer');
+            $plotId = $_POST['plt_id'] ?? '';
+            if (!ctype_digit((string) $plotId)) {
+                respond(['ok' => false, 'error' => 'Invalid plot.'], 422);
+            }
+
+            $plot = $pdo->prepare('SELECT PltID FROM PLOT WHERE PltID = ? AND GardenerID = ? AND Status = \'Occupied\'');
+            $plot->execute([(int) $plotId, $user['id']]);
+            if (!$plot->fetchColumn()) {
+                respond(['ok' => false, 'error' => 'That plot is not assigned to you.'], 409);
+            }
+
+            $pending = $pdo->prepare("SELECT 1 FROM PLOT_APPLICATION WHERE GardenerID = ? AND PltID = ? AND Status = 'Pending'");
+            $pending->execute([$user['id'], (int) $plotId]);
+            if ($pending->fetchColumn()) {
+                respond(['ok' => false, 'error' => 'An unassignment request is already pending.'], 409);
+            }
+
+            $pdo->prepare("INSERT INTO PLOT_APPLICATION (GardenerID, PltID, Status, RequestType) VALUES (?, ?, 'Pending', 'Unassign')")
+                ->execute([$user['id'], (int) $plotId]);
+            respond(['ok' => true]);
+        }
+
         case 'apply_plot': {
             $user = requireJsonRole('customer');
             $pltId = $_POST['plt_id'] ?? '';
@@ -263,7 +293,7 @@ try {
             $status = $check->fetchColumn();
             if ($status !== 'Available') respond(['ok' => false, 'error' => 'That plot is no longer available.'], 409);
 
-            $pdo->prepare("INSERT INTO PLOT_APPLICATION (GardenerID, PltID, Status) VALUES (?, ?, 'Pending')")
+            $pdo->prepare("INSERT INTO PLOT_APPLICATION (GardenerID, PltID, Status, RequestType) VALUES (?, ?, 'Pending', 'Apply')")
                 ->execute([$user['id'], (int) $pltId]);
             respond(['ok' => true]);
         }
@@ -344,7 +374,7 @@ try {
         case 'pending_applications': {
             requireJsonRole('staff');
             $rows = $pdo->query("
-                SELECT PA.AppID, G.Name AS GardenerName, P.Label, PA.AppliedAt
+                SELECT PA.AppID, G.Name AS GardenerName, P.Label, PA.AppliedAt, PA.RequestType
                 FROM PLOT_APPLICATION PA
                 JOIN COMMUNITY_GARDENER G ON G.GardenerID = PA.GardenerID
                 JOIN PLOT P ON P.PltID = PA.PltID
@@ -361,7 +391,7 @@ try {
                 respond(['ok' => false, 'error' => 'Invalid request.'], 422);
             }
 
-            $app = $pdo->prepare("SELECT GardenerID, PltID, Status FROM PLOT_APPLICATION WHERE AppID = ?");
+            $app = $pdo->prepare("SELECT GardenerID, PltID, Status, RequestType FROM PLOT_APPLICATION WHERE AppID = ?");
             $app->execute([(int) $appId]);
             $row = $app->fetch(PDO::FETCH_ASSOC);
             if (!$row || $row['Status'] !== 'Pending') respond(['ok' => false, 'error' => 'Application already processed.'], 409);
@@ -371,8 +401,13 @@ try {
                 ->execute([$newStatus, $user['id'], (int) $appId]);
 
             if ($decision === 'approve') {
-                $pdo->prepare("UPDATE PLOT SET GardenerID = ?, Status = 'Occupied' WHERE PltID = ?")
-                    ->execute([$row['GardenerID'], $row['PltID']]);
+                if ($row['RequestType'] === 'Unassign') {
+                    $pdo->prepare("UPDATE PLOT SET GardenerID = NULL, Status = 'Available' WHERE PltID = ? AND GardenerID = ?")
+                        ->execute([$row['PltID'], $row['GardenerID']]);
+                } else {
+                    $pdo->prepare("UPDATE PLOT SET GardenerID = ?, Status = 'Occupied' WHERE PltID = ?")
+                        ->execute([$row['GardenerID'], $row['PltID']]);
+                }
             }
             respond(['ok' => true]);
         }
@@ -416,6 +451,52 @@ try {
                 $pdo->prepare("UPDATE RESOURCE_TXN SET Status = 'Rejected', CoordID = ? WHERE TxnID = ?")
                     ->execute([$user['id'], (int) $txnId]);
             }
+            respond(['ok' => true]);
+        }
+
+        case 'create_plot': {
+            requireJsonRole('staff');
+            $label = trim($_POST['label'] ?? '');
+            if ($label === '' || strlen($label) > 80) {
+                respond(['ok' => false, 'error' => 'Enter a plot name up to 80 characters.'], 422);
+            }
+            if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9 ._-]*$/', $label)) {
+                respond(['ok' => false, 'error' => 'Plot names may use letters, numbers, spaces, dots, hyphens, and underscores.'], 422);
+            }
+
+            $duplicate = $pdo->prepare('SELECT 1 FROM PLOT WHERE LOWER(Label) = LOWER(?) LIMIT 1');
+            $duplicate->execute([$label]);  
+            if ($duplicate->fetchColumn()) {
+                respond(['ok' => false, 'error' => 'A plot with that name already exists.'], 409);
+            }
+
+            $pdo->prepare("INSERT INTO PLOT (Label, GardenerID, Status) VALUES (?, NULL, 'Available')")
+                ->execute([$label]);
+            respond(['ok' => true]);
+        }
+
+        case 'delete_plot': {
+            requireJsonRole('staff');
+            $plotId = $_POST['plot_id'] ?? '';
+            if (!ctype_digit((string) $plotId)) {
+                respond(['ok' => false, 'error' => 'Invalid plot.'], 422);
+            }
+
+            $plot = $pdo->prepare('SELECT GardenerID, Status FROM PLOT WHERE PltID = ?');
+            $plot->execute([(int) $plotId]);
+            $row = $plot->fetch(PDO::FETCH_ASSOC);
+            if (!$row) respond(['ok' => false, 'error' => 'Plot not found.'], 404);
+            if ($row['GardenerID'] !== null || $row['Status'] !== 'Available') {
+                respond(['ok' => false, 'error' => 'Only an available, unassigned plot can be deleted.'], 409);
+            }
+
+            $references = $pdo->prepare('SELECT 1 FROM PLOT_APPLICATION WHERE PltID = ? LIMIT 1');
+            $references->execute([(int) $plotId]);
+            if ($references->fetchColumn()) {
+                respond(['ok' => false, 'error' => 'This plot has application history and cannot be deleted.'], 409);
+            }
+
+            $pdo->prepare('DELETE FROM PLOT WHERE PltID = ?')->execute([(int) $plotId]);
             respond(['ok' => true]);
         }
 

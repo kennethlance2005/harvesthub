@@ -32,13 +32,34 @@ async function loadPlot() {
   if (!data.ok) return;
 
   if (data.plots.length > 0) {
+    const pendingUnassignment = data.pending_application?.RequestType === 'Unassign';
     el.innerHTML = `
       <p class="text-muted" style="font-size: 0.85rem; margin: 0 0 8px;">Your currently assigned plots:</p>
       <ul style="margin: 0; padding-left: 18px;">
-        ${data.plots.map(plot => `<li><strong>${escapeHtml(plot.Label)}</strong></li>`).join('')}
+        ${data.plots.map(plot => `
+          <li style="margin-bottom: 10px;">
+            <strong>${escapeHtml(plot.Label)}</strong>
+            <button class="btn btn-ghost btn-sm unassign-plot-btn" data-id="${plot.PltID}" data-label="${escapeHtml(plot.Label)}" type="button" style="margin-left: 8px;" ${pendingUnassignment ? 'disabled' : ''}>${pendingUnassignment ? 'Unassignment pending' : 'Request unassignment'}</button>
+          </li>
+        `).join('')}
       </ul>
       <p class="text-muted" style="font-size: 0.85rem;">Log your crops and resource needs using the panels alongside this one.</p>
     `;
+    if (data.pending_application?.RequestType === 'Unassign') {
+      el.insertAdjacentHTML('beforeend', `<p class="form-alert" style="display:block; background:#f3e9d6; color:#8a5a1e;">Your request to unassign <strong>${escapeHtml(data.pending_application.Label)}</strong> is pending Coordinator approval.</p>`);
+    }
+    document.querySelectorAll('.unassign-plot-btn').forEach(button => {
+      button.addEventListener('click', async () => {
+        if (!window.confirm(`Request unassignment of "${button.dataset.label}"?`)) return;
+        const result = await postAction('request_plot_unassignment', { plt_id: button.dataset.id });
+        if (result.ok) {
+          showToast('Unassignment request submitted.', 'success');
+          loadPlot();
+        } else {
+          showToast(result.error || 'Could not submit unassignment request.', 'danger');
+        }
+      });
+    });
     return;
   }
 

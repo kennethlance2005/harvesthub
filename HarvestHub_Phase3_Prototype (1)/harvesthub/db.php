@@ -22,6 +22,7 @@ function getDb(): PDO {
 
     ensureSignupRequestsTable($pdo);
     ensureGardenerProfileColumns($pdo);
+    ensurePlotApplicationColumns($pdo);
 
     return $pdo;
 }
@@ -75,6 +76,14 @@ function ensureGardenerProfileColumns(PDO $pdo): void {
     }
 }
 
+function ensurePlotApplicationColumns(PDO $pdo): void {
+    $cols = $pdo->query("PRAGMA table_info(PLOT_APPLICATION)")->fetchAll(PDO::FETCH_ASSOC);
+    $names = array_column($cols, 'name');
+    if (!in_array('RequestType', $names, true)) {
+        $pdo->exec("ALTER TABLE PLOT_APPLICATION ADD COLUMN RequestType TEXT NOT NULL DEFAULT 'Apply'");
+    }
+}
+
 function seedDatabase(PDO $pdo): void {
     $pdo->exec("
         CREATE TABLE SYSTEM_ADMINISTRATOR (
@@ -113,6 +122,7 @@ function seedDatabase(PDO $pdo): void {
             CoordID INTEGER,
             PltID INTEGER NOT NULL,
             Status TEXT NOT NULL DEFAULT 'Pending',
+            RequestType TEXT NOT NULL DEFAULT 'Apply',
             AppliedAt TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY (GardenerID) REFERENCES COMMUNITY_GARDENER(GardenerID),
             FOREIGN KEY (CoordID) REFERENCES GARDEN_COORDINATOR(CoordID),

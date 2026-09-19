@@ -152,6 +152,6 @@ $navTitle = 'Community Gardener Dashboard';
 
 <div class="toast-container" id="toast-container" aria-live="polite"></div>
 <script src="assets/app.js"></script>
-<script src="assets/customer.js"></script>
+<script src="assets/customer.js?v=2"></script>
 </body>
 </html>

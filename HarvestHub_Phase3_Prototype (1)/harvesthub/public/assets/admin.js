@@ -14,6 +14,16 @@ function showToast(message, type = 'success') {
   setTimeout(() => toastEl.remove(), 3500);
 }
 
+function filterTableByName(inputId, tableId) {
+  const query = document.getElementById(inputId).value.trim().toLowerCase();
+  const table = document.getElementById(tableId);
+  if (!table) return;
+
+  table.querySelectorAll('tr[data-name]').forEach(row => {
+    row.hidden = query !== '' && !row.dataset.name.toLowerCase().includes(query);
+  });
+}
+
 async function loadStats() {
   const res = await fetch('api.php?action=stats');
   const data = await res.json();
@@ -45,7 +55,7 @@ async function loadAccounts() {
   if (!data.ok) return;
 
   document.getElementById('gardeners-table').innerHTML = data.gardeners.map(g => `
-    <tr>
+    <tr data-name="${escapeHtml(g.Name)}">
       <td>${escapeHtml(g.Name)}</td>
       <td>${escapeHtml(g.Email)}</td>
       <td class="text-right">
@@ -55,7 +65,7 @@ async function loadAccounts() {
   `).join('') || '<tr><td colspan="3" class="text-muted">No gardeners yet.</td></tr>';
 
   document.getElementById('coordinators-table').innerHTML = data.coordinators.map(c => `
-    <tr>
+    <tr data-name="${escapeHtml(c.Name)}">
       <td>${escapeHtml(c.Name)}</td>
       <td>${escapeHtml(c.Email)}</td>
       <td>${escapeHtml(c.Shift)}</td>
@@ -91,9 +101,9 @@ async function loadSignupRequests() {
     <div class="table-wrap">
       <table class="data-table">
         <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Age</th><th>Location</th><th></th></tr></thead>
-        <tbody>
+        <tbody id="pending-signups-table">
           ${data.requests.map(r => `
-            <tr>
+            <tr data-name="${escapeHtml(r.FirstName + ' ' + r.LastName)}">
               <td>${escapeHtml(r.FirstName + ' ' + r.LastName)}</td>
               <td>${escapeHtml(r.Email)}</td>
               <td>${r.Role === 'staff' ? 'Coordinator' : 'Gardener'}</td>
@@ -178,6 +188,15 @@ deleteConfirmBtn.addEventListener('click', async () => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-search-target]').forEach(button => {
+    const input = document.getElementById(button.dataset.searchTarget);
+    const filter = () => filterTableByName(button.dataset.searchTarget, button.dataset.tableTarget);
+    button.addEventListener('click', filter);
+    input.addEventListener('keydown', event => {
+      if (event.key === 'Enter') filter();
+    });
+  });
+
   loadStats();
   loadAccounts();
   loadSignupRequests();
