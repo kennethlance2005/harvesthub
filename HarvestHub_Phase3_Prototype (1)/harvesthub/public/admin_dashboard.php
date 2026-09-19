@@ -29,8 +29,8 @@ $navTitle = 'System Administrator Dashboard';
   <div class="panel" style="margin-bottom: 24px;">
     <p class="panel-title">Pending Account Requests</p>
     <div class="table-search">
-      <label class="sr-only" for="pending-signups-search">Search pending account requests by name</label>
-      <input type="search" id="pending-signups-search" placeholder="Search by name">
+      <label class="sr-only" for="pending-signups-search">Search pending account requests by name or location</label>
+      <input type="search" id="pending-signups-search" placeholder="Search by name or location">
       <button type="button" class="btn btn-ghost btn-sm" data-search-target="pending-signups-search" data-table-target="pending-signups-table">Search</button>
     </div>
     <div class="pending-request-list" id="signups-list"></div>
@@ -40,8 +40,8 @@ $navTitle = 'System Administrator Dashboard';
   <div class="panel" style="margin-bottom: 24px;">
     <p class="panel-title">Community Gardeners</p>
     <div class="table-search">
-      <label class="sr-only" for="gardeners-search">Search community gardeners by name</label>
-      <input type="search" id="gardeners-search" placeholder="Search by name">
+      <label class="sr-only" for="gardeners-search">Search community gardeners by name or location</label>
+      <input type="search" id="gardeners-search" placeholder="Search by name or location">
       <button type="button" class="btn btn-ghost btn-sm" data-search-target="gardeners-search" data-table-target="gardeners-table">Search</button>
     </div>
     <div class="table-wrap">
@@ -55,8 +55,8 @@ $navTitle = 'System Administrator Dashboard';
   <div class="panel">
     <p class="panel-title">Garden Coordinators</p>
     <div class="table-search">
-      <label class="sr-only" for="coordinators-search">Search garden coordinators by name</label>
-      <input type="search" id="coordinators-search" placeholder="Search by name">
+      <label class="sr-only" for="coordinators-search">Search garden coordinators by name or location</label>
+      <input type="search" id="coordinators-search" placeholder="Search by name or location">
       <button type="button" class="btn btn-ghost btn-sm" data-search-target="coordinators-search" data-table-target="coordinators-table">Search</button>
     </div>
     <div class="table-wrap">

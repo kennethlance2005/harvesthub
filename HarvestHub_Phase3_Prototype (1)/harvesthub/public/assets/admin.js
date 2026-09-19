@@ -20,7 +20,9 @@ function filterTableByName(inputId, tableId) {
   if (!table) return;
 
   table.querySelectorAll('tr[data-name]').forEach(row => {
-    row.hidden = query !== '' && !row.dataset.name.toLowerCase().includes(query);
+    const name = row.dataset.name.toLowerCase();
+    const location = (row.dataset.location || '').toLowerCase();
+    row.hidden = query !== '' && !name.includes(query) && !location.includes(query);
   });
 }
 
@@ -55,7 +57,7 @@ async function loadAccounts() {
   if (!data.ok) return;
 
   document.getElementById('gardeners-table').innerHTML = data.gardeners.map(g => `
-    <tr data-name="${escapeHtml(g.Name)}">
+    <tr data-name="${escapeHtml(g.Name)}" data-location="${escapeHtml(g.Location || '')}">
       <td>${escapeHtml(g.Name)}</td>
       <td>${escapeHtml(g.Email)}</td>
       <td>${escapeHtml(g.Location || 'Not provided')}</td>
@@ -66,7 +68,7 @@ async function loadAccounts() {
   `).join('') || '<tr><td colspan="4" class="text-muted">No gardeners yet.</td></tr>';
 
   document.getElementById('coordinators-table').innerHTML = data.coordinators.map(c => `
-    <tr data-name="${escapeHtml(c.Name)}">
+    <tr data-name="${escapeHtml(c.Name)}" data-location="${escapeHtml(c.Location || '')}">
       <td>${escapeHtml(c.Name)}</td>
       <td>${escapeHtml(c.Email)}</td>
       <td>${escapeHtml(c.Shift)}</td>
@@ -107,7 +109,7 @@ async function loadSignupRequests() {
         <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Age</th><th>Location</th><th>Shift</th><th></th></tr></thead>
         <tbody id="pending-signups-table">
           ${data.requests.map(r => `
-            <tr data-name="${escapeHtml(r.FirstName + ' ' + r.LastName)}">
+            <tr data-name="${escapeHtml(r.FirstName + ' ' + r.LastName)}" data-location="${escapeHtml(r.Location || '')}">
               <td>${escapeHtml(r.FirstName + ' ' + r.LastName)}</td>
               <td>${escapeHtml(r.Email)}</td>
               <td>${r.Role === 'staff' ? 'Coordinator' : 'Gardener'}</td>
