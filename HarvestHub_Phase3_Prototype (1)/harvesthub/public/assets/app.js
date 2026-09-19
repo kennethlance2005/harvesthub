@@ -61,7 +61,7 @@ function renderListings(listings) {
         ${item.Notes ? `<p class="listing-notes">${escapeHtml(item.Notes)}</p>` : ''}
       </div>
       <div class="listing-side">
-        <span class="qty-tag">Qty: ${escapeHtml(String(item.Qty))}</span>
+        <span style="font-size: 0.9rem; font-weight: 600; color: var(--ink-900);">Qty: ${escapeHtml(String(item.Qty))}</span>
         <button class="btn btn-accent claim-btn" data-id="${item.ListingID}" data-crop="${escapeHtml(item.Crop)}" data-qty="${escapeHtml(String(item.Qty))}">
           Claim
         </button>

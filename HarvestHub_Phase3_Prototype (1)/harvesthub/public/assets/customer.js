@@ -1,26 +1,47 @@
 // customer.js — Community Gardener dashboard logic
 
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+const unassignModal = document.getElementById('unassign-modal');
+const unassignModalBody = document.getElementById('unassign-modal-body');
+const unassignCancelBtn = document.getElementById('unassign-cancel');
+const unassignConfirmBtn = document.getElementById('unassign-confirm');
+let pendingUnassign = null; // { pltId, label }
+
+function openUnassignModal(pltId, label) {
+  pendingUnassign = { pltId, label };
+  unassignModalBody.textContent = `Are you sure you want to request unassignment for "${label}"? This will be sent to the Coordinator for review.`;
+  unassignModal.hidden = false;
+  unassignConfirmBtn.focus();
 }
 
-function showToast(message, type = 'success') {
-  const toastEl = document.createElement('div');
-  toastEl.className = `toast${type === 'danger' ? ' toast-danger' : ''}`;
-  toastEl.textContent = message;
-  document.getElementById('toast-container').appendChild(toastEl);
-  setTimeout(() => toastEl.remove(), 3500);
+function closeUnassignModal() {
+  if (unassignModal) unassignModal.hidden = true;
+  pendingUnassign = null;
 }
 
-async function postAction(action, params) {
-  const res = await fetch('api.php', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ action, ...params }),
+if (unassignCancelBtn) unassignCancelBtn.addEventListener('click', closeUnassignModal);
+if (unassignModal) {
+  unassignModal.addEventListener('click', (e) => {
+    if (e.target === unassignModal) closeUnassignModal();
   });
-  return res.json();
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && unassignModal && !unassignModal.hidden) closeUnassignModal();
+});
+
+if (unassignConfirmBtn) {
+  unassignConfirmBtn.addEventListener('click', async () => {
+    if (!pendingUnassign) return;
+    const { pltId } = pendingUnassign;
+    closeUnassignModal();
+
+    const result = await postAction('request_plot_unassignment', { plt_id: pltId });
+    if (result.ok) {
+      showToast('Unassignment request submitted.', 'success');
+      loadPlot();
+    } else {
+      showToast(result.error || 'Could not submit unassignment request.', 'danger');
+    }
+  });
 }
 
 // ---------- Plot ----------
@@ -49,15 +70,8 @@ async function loadPlot() {
       el.insertAdjacentHTML('beforeend', `<p class="form-alert" style="display:block; background:#f3e9d6; color:#8a5a1e;">Your request to unassign <strong>${escapeHtml(data.pending_application.Label)}</strong> is pending Coordinator approval.</p>`);
     }
     document.querySelectorAll('.unassign-plot-btn').forEach(button => {
-      button.addEventListener('click', async () => {
-        if (!window.confirm(`Request unassignment of "${button.dataset.label}"?`)) return;
-        const result = await postAction('request_plot_unassignment', { plt_id: button.dataset.id });
-        if (result.ok) {
-          showToast('Unassignment request submitted.', 'success');
-          loadPlot();
-        } else {
-          showToast(result.error || 'Could not submit unassignment request.', 'danger');
-        }
+      button.addEventListener('click', () => {
+        openUnassignModal(button.dataset.id, button.dataset.label);
       });
     });
     return;
@@ -176,11 +190,18 @@ async function loadMyRequests() {
     return;
   }
 
-  const badgeClass = { Requested: 'badge-brown', Approved: 'badge-green', Rejected: 'badge-neutral' };
+  const statusColor = {
+    Requested: 'color: var(--brown-700);',
+    Approved: 'color: var(--green-700); font-weight: 600;',
+    Rejected: 'color: var(--danger); font-weight: 600;',
+  };
+
   el.innerHTML = data.requests.map(r => `
-    <div style="display:flex; justify-content: space-between; align-items:center; border-bottom: 1px solid var(--line); padding: 6px 0;">
-      <span style="font-size: 0.85rem;">${escapeHtml(String(r.Qty))}x ${escapeHtml(r.Name)}</span>
-      <span class="badge ${badgeClass[r.Status] || 'badge-neutral'}">${escapeHtml(r.Status)}</span>
+    <div style="display:flex; justify-content: space-between; align-items:center; border-bottom: 1px solid var(--line); padding: 8px 0;">
+      <span style="font-size: 0.88rem;">${escapeHtml(String(r.Qty))}x ${escapeHtml(r.Name)}</span>
+      <span style="font-size: 0.85rem; ${statusColor[r.Status] || 'color: var(--ink-600);'}">
+        ${escapeHtml(r.Status)}
+      </span>
     </div>
   `).join('');
 }

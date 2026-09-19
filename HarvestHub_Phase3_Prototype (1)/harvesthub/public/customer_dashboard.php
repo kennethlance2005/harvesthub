@@ -19,54 +19,62 @@ $navTitle = 'Community Gardener Dashboard';
 
 <main class="wrap page-wrap" id="top">
 
-  
+  <!-- Top 3 Panels with equal alignment -->
+  <div class="grid grid-3 gardener-top-grid">
 
-  <div class="grid grid-3">
-
-  <div class="panel">
+    <!-- Current Plots Panel -->
+    <div class="panel d-flex-col">
       <p class="panel-title">Current Plots</p>
-    <div id="plot-status"></div>
+      <div id="plot-status" style="flex: 1;"></div>
 
-    <button type="button" class="btn btn-ghost btn-block" id="request-plot-btn" style="margin-top: 16px;">
-    Request for more plots
-    </button>
-    <div id="available-plots" hidden style="margin-top: 12px;"></div>
-    <p class="form-alert" id="plot-request-alert" hidden></p>
-    <p class="form-success" id="plot-request-success" hidden></p>
-  </div>
+      <button type="button" class="btn btn-accent btn-block" id="request-plot-btn" style="margin-top: 16px;">
+        Request for more plots
+      </button>
+      <div id="available-plots" hidden style="margin-top: 12px;"></div>
+      <p class="form-alert" id="plot-request-alert" hidden></p>
+      <p class="form-success" id="plot-request-success" hidden></p>
+    </div>
 
-    <div class="panel">
+    <!-- Crop Lifecycle Log Panel -->
+    <div class="panel d-flex-col">
       <p class="panel-title">Crop Lifecycle Log</p>
       <form id="croplog-form" novalidate style="margin-bottom: 16px;">
         <div class="field">
-          <input type="text" id="crop-name" placeholder="Crop name" maxlength="60" required>
+          <label for="crop-name">Crop Name *</label>
+          <input type="text" id="crop-name" maxlength="60" required>
         </div>
         <div class="field">
-          <input type="text" id="crop-notes" placeholder="Maintenance notes" maxlength="300">
+          <label for="crop-notes">Maintenance Notes <span class="field-optional">(optional)</span></label>
+          <input type="text" id="crop-notes" maxlength="300">
         </div>
         <div class="field">
-          <input type="text" id="crop-yield" placeholder="Harvest yield (e.g. 5 kg)" maxlength="60">
+          <label for="crop-yield">Harvest Yield <span class="field-optional">(e.g. 5 kg)</span></label>
+          <input type="text" id="crop-yield" maxlength="60">
         </div>
-        <button type="submit" class="btn btn-ghost btn-block">Add Log Entry</button>
+        <button type="submit" class="btn btn-accent btn-block">Add Log Entry</button>
         <p class="form-alert" id="croplog-alert" hidden></p>
       </form>
-      <div id="croplog-list" class="scroll-y"></div>
+      <div id="croplog-list" class="scroll-y" style="flex: 1;"></div>
     </div>
 
-    <div class="panel">
+    <!-- Resource Sharing Hub Panel -->
+    <div class="panel d-flex-col">
       <p class="panel-title">Resource Sharing Hub</p>
       <form id="resource-form" class="inline-form" style="margin-bottom: 14px;">
         <select id="resource-select" class="field-select" style="flex: 1;"></select>
         <input type="number" id="resource-qty" min="1" value="1" class="field-qty" style="width: 64px;">
-        <button type="submit" class="btn btn-ghost btn-sm">Request</button>
+        <button type="submit" class="btn btn-accent btn-sm">Request</button>
       </form>
       <p class="form-alert" id="resource-alert" hidden></p>
       <p class="text-muted" style="font-size: 0.85rem; margin: 14px 0 6px;">My Requests</p>
-      <div id="my-requests-list" class="scroll-y" style="max-height: 160px;"></div>
+      <div id="my-requests-list" class="scroll-y" style="max-height: 200px;"></div>
     </div>
 
   </div>
-    <h2 class="panel-title" style="margin: 32px 0 16px;">Produce Exchange Board</h2>
+
+  <h2 class="panel-title" style="margin: 32px 0 16px;">Produce Exchange Board</h2>
+
+  <div class="app-row">
 
   <div class="app-row">
 
@@ -146,6 +154,18 @@ $navTitle = 'Community Gardener Dashboard';
     <div class="modal-actions">
       <button type="button" class="btn btn-ghost" id="claim-cancel">Cancel</button>
       <button type="button" class="btn btn-accent" id="claim-confirm">Claim it</button>
+    </div>
+  </div>
+</div>
+
+<!-- Unassign confirmation modal -->
+<div class="modal-overlay" id="unassign-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="unassign-modal-title">
+    <h3 id="unassign-modal-title">Request plot unassignment?</h3>
+    <p id="unassign-modal-body"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="unassign-cancel">Cancel</button>
+      <button type="button" class="btn btn-accent" id="unassign-confirm">Request</button>
     </div>
   </div>
 </div>
