@@ -60,7 +60,7 @@ async function loadAccounts() {
       <td>${escapeHtml(g.Email)}</td>
       <td>${escapeHtml(g.Location || 'Not provided')}</td>
       <td class="text-right">
-        <button class="btn btn-accent btn-sm delete-btn" data-table="gardener" data-id="${g.id}" data-name="${escapeHtml(g.Name)}">Remove</button>
+        <button type="button" class="btn btn-accent btn-sm delete-btn" data-table="gardener" data-id="${g.id}" data-name="${escapeHtml(g.Name)}">Remove</button>
       </td>
     </tr>
   `).join('') || '<tr><td colspan="4" class="text-muted">No gardeners yet.</td></tr>';
@@ -72,13 +72,15 @@ async function loadAccounts() {
       <td>${escapeHtml(c.Shift)}</td>
       <td>${escapeHtml(c.Location || 'Not provided')}</td>
       <td class="text-right">
-        <button class="btn btn-accent btn-sm delete-btn" data-table="coordinator" data-id="${c.id}" data-name="${escapeHtml(c.Name)}">Remove</button>
+        <button type="button" class="btn btn-accent btn-sm delete-btn" data-table="coordinator" data-id="${c.id}" data-name="${escapeHtml(c.Name)}">Remove</button>
       </td>
     </tr>
   `).join('') || '<tr><td colspan="5" class="text-muted">No coordinators yet.</td></tr>';
 
   document.querySelectorAll('.delete-btn').forEach(btn => {
-    btn.addEventListener('click', () => openDeleteModal(btn.dataset.table, btn.dataset.id, btn.dataset.name));
+    btn.onclick = () => {
+      openDeleteModal(btn.dataset.table, btn.dataset.id, btn.dataset.name);
+    };
   });
 }
 
