@@ -58,22 +58,24 @@ async function loadAccounts() {
     <tr data-name="${escapeHtml(g.Name)}">
       <td>${escapeHtml(g.Name)}</td>
       <td>${escapeHtml(g.Email)}</td>
+      <td>${escapeHtml(g.Location || 'Not provided')}</td>
       <td class="text-right">
         <button class="btn btn-accent btn-sm delete-btn" data-table="gardener" data-id="${g.id}" data-name="${escapeHtml(g.Name)}">Remove</button>
       </td>
     </tr>
-  `).join('') || '<tr><td colspan="3" class="text-muted">No gardeners yet.</td></tr>';
+  `).join('') || '<tr><td colspan="4" class="text-muted">No gardeners yet.</td></tr>';
 
   document.getElementById('coordinators-table').innerHTML = data.coordinators.map(c => `
     <tr data-name="${escapeHtml(c.Name)}">
       <td>${escapeHtml(c.Name)}</td>
       <td>${escapeHtml(c.Email)}</td>
       <td>${escapeHtml(c.Shift)}</td>
+      <td>${escapeHtml(c.Location || 'Not provided')}</td>
       <td class="text-right">
         <button class="btn btn-accent btn-sm delete-btn" data-table="coordinator" data-id="${c.id}" data-name="${escapeHtml(c.Name)}">Remove</button>
       </td>
     </tr>
-  `).join('') || '<tr><td colspan="4" class="text-muted">No coordinators yet.</td></tr>';
+  `).join('') || '<tr><td colspan="5" class="text-muted">No coordinators yet.</td></tr>';
 
   document.querySelectorAll('.delete-btn').forEach(btn => {
     btn.addEventListener('click', () => openDeleteModal(btn.dataset.table, btn.dataset.id, btn.dataset.name));
@@ -100,7 +102,7 @@ async function loadSignupRequests() {
   tbody.innerHTML = `
     <div class="table-wrap">
       <table class="data-table">
-        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Age</th><th>Location</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Age</th><th>Location</th><th>Shift</th><th></th></tr></thead>
         <tbody id="pending-signups-table">
           ${data.requests.map(r => `
             <tr data-name="${escapeHtml(r.FirstName + ' ' + r.LastName)}">
@@ -109,6 +111,7 @@ async function loadSignupRequests() {
               <td>${r.Role === 'staff' ? 'Coordinator' : 'Gardener'}</td>
               <td>${escapeHtml(String(r.Age))}</td>
               <td>${escapeHtml(r.Location)}</td>
+              <td>${r.Role === 'staff' ? escapeHtml(r.Shift || 'Morning') : '<span class="text-muted">—</span>'}</td>
               <td class="text-right" style="white-space: nowrap;">
                 <button class="btn btn-sm approve-signup" style="background: var(--green-700); color: var(--white);" data-id="${r.RequestID}">Approve</button>
                 <button class="btn btn-sm reject-signup" style="background: var(--danger); color: var(--white);" data-id="${r.RequestID}">Reject</button>

@@ -129,6 +129,7 @@ try {
             $password = $_POST['password'] ?? '';
             $confirmPassword = $_POST['confirm_password'] ?? '';
             $role = $_POST['role'] ?? '';
+            $shift = trim($_POST['shift'] ?? 'Morning');
 
             $errors = [];
             if ($firstName === '' || mb_strlen($firstName) > 60) $errors[] = 'First name is required.';
@@ -139,6 +140,7 @@ try {
             if (mb_strlen($password) < 6) $errors[] = 'Password must be at least 6 characters.';
             if ($password !== $confirmPassword) $errors[] = 'Passwords do not match.';
             if (!in_array($role, ['customer', 'staff'], true)) $errors[] = 'Please choose a role.';
+            if ($role === 'staff' && !in_array($shift, ['Morning', 'Afternoon'], true)) $errors[] = 'Please choose a valid coordinator shift.';
             if ($errors) respond(['ok' => false, 'errors' => $errors], 422);
 
             // An email already active as any account, or already sitting
@@ -155,8 +157,8 @@ try {
             }
 
             $pdo->prepare("
-                INSERT INTO SIGNUP_REQUEST (FirstName, LastName, Age, Location, Email, PasswordHash, Role)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO SIGNUP_REQUEST (FirstName, LastName, Age, Location, Email, PasswordHash, Role, Shift)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ")->execute([
                 htmlspecialchars($firstName, ENT_QUOTES, 'UTF-8'),
                 htmlspecialchars($lastName, ENT_QUOTES, 'UTF-8'),
@@ -165,6 +167,7 @@ try {
                 $email,
                 password_hash($password, PASSWORD_BCRYPT),
                 $role,
+                $shift,
             ]);
             respond(['ok' => true]);
         }
@@ -537,15 +540,15 @@ try {
 
         case 'accounts': {
             requireJsonRole('admin');
-            $gardeners = $pdo->query("SELECT GardenerID AS id, Name, Email FROM COMMUNITY_GARDENER ORDER BY Name")->fetchAll(PDO::FETCH_ASSOC);
-            $coordinators = $pdo->query("SELECT CoordID AS id, Name, Email, Shift FROM GARDEN_COORDINATOR ORDER BY Name")->fetchAll(PDO::FETCH_ASSOC);
+            $gardeners = $pdo->query("SELECT GardenerID AS id, Name, Email, COALESCE(NULLIF(Location, ''), 'Not provided') AS Location FROM COMMUNITY_GARDENER ORDER BY Name")->fetchAll(PDO::FETCH_ASSOC);
+            $coordinators = $pdo->query("SELECT CoordID AS id, Name, Email, Shift, COALESCE(NULLIF(Location, ''), 'Not provided') AS Location FROM GARDEN_COORDINATOR ORDER BY Name")->fetchAll(PDO::FETCH_ASSOC);
             respond(['ok' => true, 'gardeners' => $gardeners, 'coordinators' => $coordinators]);
         }
 
         case 'pending_signups': {
             requireJsonRole('admin');
             $rows = $pdo->query("
-                SELECT RequestID, FirstName, LastName, Age, Location, Email, Role, RequestedAt
+                SELECT RequestID, FirstName, LastName, Age, Location, Email, Role, Shift, RequestedAt
                 FROM SIGNUP_REQUEST WHERE Status = 'Pending' ORDER BY RequestedAt ASC
             ")->fetchAll(PDO::FETCH_ASSOC);
             respond(['ok' => true, 'requests' => $rows]);
@@ -576,8 +579,8 @@ try {
                 $name = trim($row['FirstName'] . ' ' . $row['LastName']);
                 try {
                     if ($row['Role'] === 'staff') {
-                        $pdo->prepare("INSERT INTO GARDEN_COORDINATOR (Name, Email, PasswordHash, Shift) VALUES (?, ?, ?, 'Morning')")
-                            ->execute([$name, $row['Email'], $row['PasswordHash']]);
+                        $pdo->prepare("INSERT INTO GARDEN_COORDINATOR (Name, Email, PasswordHash, Shift, Location) VALUES (?, ?, ?, ?, ?)")
+                            ->execute([$name, $row['Email'], $row['PasswordHash'], $row['Shift'], $row['Location']]);
                     } else {
                         $pdo->prepare("INSERT INTO COMMUNITY_GARDENER (Name, Email, PasswordHash, Age, Location) VALUES (?, ?, ?, ?, ?)")
                             ->execute([$name, $row['Email'], $row['PasswordHash'], $row['Age'], $row['Location']]);
@@ -600,6 +603,7 @@ try {
             $email = trim($_POST['email'] ?? '');
             $password = $_POST['password'] ?? '';
             $shift = trim($_POST['shift'] ?? 'Morning');
+            $location = trim($_POST['location'] ?? 'Not provided');
 
             $errors = [];
             if ($name === '' || mb_strlen($name) > 80) $errors[] = 'Name is required.';
@@ -609,8 +613,8 @@ try {
             if ($errors) respond(['ok' => false, 'errors' => $errors], 422);
 
             try {
-                $pdo->prepare("INSERT INTO GARDEN_COORDINATOR (Name, Email, PasswordHash, Shift) VALUES (?, ?, ?, ?)")
-                    ->execute([htmlspecialchars($name, ENT_QUOTES, 'UTF-8'), $email, password_hash($password, PASSWORD_BCRYPT), $shift]);
+                $pdo->prepare("INSERT INTO GARDEN_COORDINATOR (Name, Email, PasswordHash, Shift, Location) VALUES (?, ?, ?, ?, ?)")
+                    ->execute([htmlspecialchars($name, ENT_QUOTES, 'UTF-8'), $email, password_hash($password, PASSWORD_BCRYPT), $shift, $location]);
             } catch (PDOException $e) {
                 respond(['ok' => false, 'error' => 'That email is already in use.'], 409);
             }

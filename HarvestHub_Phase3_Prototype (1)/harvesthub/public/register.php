@@ -43,6 +43,14 @@ if ($user = currentUser()) {
         </div>
       </div>
 
+      <div class="field" id="shift-field" hidden>
+        <label for="shift">Coordinator Shift</label>
+        <select id="shift" name="shift">
+          <option value="Morning">Morning</option>
+          <option value="Afternoon">Afternoon</option>
+        </select>
+      </div>
+
       <div class="field-row">
         <div class="field">
           <label for="age">Age</label>

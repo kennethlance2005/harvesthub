@@ -46,7 +46,7 @@ $navTitle = 'System Administrator Dashboard';
     </div>
     <div class="table-wrap">
       <table class="data-table">
-        <thead><tr><th>Name</th><th>Email</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Location</th><th></th></tr></thead>
         <tbody id="gardeners-table"></tbody>
       </table>
     </div>
@@ -61,7 +61,7 @@ $navTitle = 'System Administrator Dashboard';
     </div>
     <div class="table-wrap">
       <table class="data-table">
-        <thead><tr><th>Name</th><th>Email</th><th>Shift</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Shift</th><th>Location</th><th></th></tr></thead>
         <tbody id="coordinators-table"></tbody>
       </table>
     </div>

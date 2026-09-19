@@ -22,6 +22,7 @@ function getDb(): PDO {
 
     ensureSignupRequestsTable($pdo);
     ensureGardenerProfileColumns($pdo);
+    ensureCoordinatorProfileColumns($pdo);
     ensurePlotApplicationColumns($pdo);
 
     return $pdo;
@@ -57,6 +58,9 @@ function ensureSignupRequestsTable(PDO $pdo): void {
     if (!in_array('Role', $names, true)) {
         $pdo->exec("ALTER TABLE SIGNUP_REQUEST ADD COLUMN Role TEXT NOT NULL DEFAULT 'customer'");
     }
+    if (!in_array('Shift', $names, true)) {
+        $pdo->exec("ALTER TABLE SIGNUP_REQUEST ADD COLUMN Shift TEXT NOT NULL DEFAULT 'Morning'");
+    }
 }
 
 /**
@@ -74,6 +78,38 @@ function ensureGardenerProfileColumns(PDO $pdo): void {
     if (!in_array('Location', $names, true)) {
         $pdo->exec("ALTER TABLE COMMUNITY_GARDENER ADD COLUMN Location TEXT");
     }
+
+    $pdo->exec("UPDATE COMMUNITY_GARDENER
+        SET Location = (
+            SELECT S.Location FROM SIGNUP_REQUEST S
+            WHERE S.Email = COMMUNITY_GARDENER.Email AND S.Role = 'customer'
+            ORDER BY S.RequestID DESC LIMIT 1
+        )
+        WHERE (Location IS NULL OR Location = '')
+          AND EXISTS (
+            SELECT 1 FROM SIGNUP_REQUEST S
+            WHERE S.Email = COMMUNITY_GARDENER.Email AND S.Role = 'customer'
+          )");
+}
+
+function ensureCoordinatorProfileColumns(PDO $pdo): void {
+    $cols = $pdo->query("PRAGMA table_info(GARDEN_COORDINATOR)")->fetchAll(PDO::FETCH_ASSOC);
+    $names = array_column($cols, 'name');
+    if (!in_array('Location', $names, true)) {
+        $pdo->exec("ALTER TABLE GARDEN_COORDINATOR ADD COLUMN Location TEXT NOT NULL DEFAULT 'Not provided'");
+    }
+
+    $pdo->exec("UPDATE GARDEN_COORDINATOR
+        SET Location = (
+            SELECT S.Location FROM SIGNUP_REQUEST S
+            WHERE S.Email = GARDEN_COORDINATOR.Email AND S.Role = 'staff'
+            ORDER BY S.RequestID DESC LIMIT 1
+        )
+        WHERE (Location IS NULL OR Location = '' OR Location = 'Not provided')
+          AND EXISTS (
+            SELECT 1 FROM SIGNUP_REQUEST S
+            WHERE S.Email = GARDEN_COORDINATOR.Email AND S.Role = 'staff'
+          )");
 }
 
 function ensurePlotApplicationColumns(PDO $pdo): void {
@@ -92,13 +128,15 @@ function seedDatabase(PDO $pdo): void {
             Email TEXT NOT NULL UNIQUE,
             PasswordHash TEXT NOT NULL
         );
+            Shift TEXT NOT NULL DEFAULT 'Morning',
 
         CREATE TABLE GARDEN_COORDINATOR (
             CoordID INTEGER PRIMARY KEY AUTOINCREMENT,
             Name TEXT NOT NULL,
             Email TEXT NOT NULL UNIQUE,
             PasswordHash TEXT NOT NULL,
-            Shift TEXT NOT NULL DEFAULT 'Morning'
+            Shift TEXT NOT NULL DEFAULT 'Morning',
+            Location TEXT NOT NULL DEFAULT 'Not provided'
         );
 
         CREATE TABLE COMMUNITY_GARDENER (
@@ -187,8 +225,8 @@ function seedDatabase(PDO $pdo): void {
     $pdo->prepare("INSERT INTO SYSTEM_ADMINISTRATOR (Name, Email, PasswordHash) VALUES (?, ?, ?)")
         ->execute(['Ana Bautista', 'admin@harvesthub.test', $hash]);
 
-    $insertCoord = $pdo->prepare("INSERT INTO GARDEN_COORDINATOR (Name, Email, PasswordHash, Shift) VALUES (?, ?, ?, ?)");
-    $insertCoord->execute(['Ramon Cruz', 'coordinator@harvesthub.test', $hash, 'Morning']);
+    $insertCoord = $pdo->prepare("INSERT INTO GARDEN_COORDINATOR (Name, Email, PasswordHash, Shift, Location) VALUES (?, ?, ?, ?, ?)");
+    $insertCoord->execute(['Ramon Cruz', 'coordinator@harvesthub.test', $hash, 'Morning', 'Manila']);
 
     $insertGardener = $pdo->prepare("INSERT INTO COMMUNITY_GARDENER (Name, Email, PasswordHash) VALUES (?, ?, ?)");
     $gardeners = [

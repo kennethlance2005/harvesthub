@@ -4,6 +4,14 @@
 const form = document.getElementById('register-form');
 const alertEl = document.getElementById('register-alert');
 const successEl = document.getElementById('register-success');
+const roleSelect = document.getElementById('role');
+const shiftField = document.getElementById('shift-field');
+
+roleSelect.addEventListener('change', () => {
+  const isCoordinator = roleSelect.value === 'staff';
+  shiftField.hidden = !isCoordinator;
+  document.getElementById('shift').required = isCoordinator;
+});
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -37,6 +45,7 @@ form.addEventListener('submit', async (e) => {
     password: password,
     confirm_password: confirmPassword,
     role: role,
+    shift: document.getElementById('shift').value,
   });
 
   const submitBtn = form.querySelector('button[type="submit"]');
