@@ -499,11 +499,14 @@ a { color: inherit; }
   position: fixed;
   bottom: 20px;
   right: 20px;
+  left: 20px;
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: 10px;
   z-index: 400;
   max-width: 320px;
+  margin-left: auto;
 }
 
 .toast {
@@ -630,26 +633,37 @@ a { color: inherit; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 72px;
+  min-height: 72px;
   gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 0;
 }
 
 .app-header-right {
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
 }
 
 .app-header-title {
   color: var(--cream-200);
   font-size: 0.92rem;
   margin-right: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .app-header-greeting {
   color: var(--cream-200);
   font-size: 0.88rem;
   margin-right: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 32vw;
 }
 
 .btn-on-dark {
@@ -659,10 +673,15 @@ a { color: inherit; }
 }
 .btn-on-dark:hover { border-color: #842a22; background: #842a22; }
 
-.btn-sm { padding: 7px 14px; font-size: 0.85rem; }
+.btn-sm { padding: 7px 14px; font-size: 0.85rem; flex-shrink: 0; }
 
-@media (max-width: 767px) {
+@media (max-width: 850px) {
   .app-header-title { display: none; }
+}
+
+@media (max-width: 480px) {
+  .app-header-greeting { max-width: 40vw; margin-right: 8px; }
+  .app-header-right { gap: 8px; }
 }
 
 /* ---------- Generic content card (reuses post-panel look) ---------- */
@@ -703,16 +722,17 @@ a { color: inherit; }
   min-width: 0;
   flex: 1;
   padding: 8px 10px;
-  border: 1px solid rgba(168, 86, 46, 0.52);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   color: var(--ink-900);
-  background: rgba(168, 86, 46, 0.08);
+  background: var(--white);
   font-family: var(--font-body);
 }
 
 .plot-management-form input:focus {
-  outline: 2px solid rgba(168, 86, 46, 0.45);
+  outline: 2px solid var(--green-300);
   outline-offset: 1px;
+  border-color: var(--green-600);
 }
 
 .table-search input {
@@ -733,17 +753,18 @@ a { color: inherit; }
 
 .table-search select {
   padding: 8px 28px 8px 10px;
-  border: 1px solid rgba(168, 86, 46, 0.52);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   color: var(--ink-900);
-  background: rgba(168, 86, 46, 0.14);
+  background: var(--white);
   font-family: var(--font-body);
   font-size: 0.88rem;
 }
 
 .table-search select:focus {
-  outline: 2px solid rgba(168, 86, 46, 0.45);
+  outline: 2px solid var(--green-300);
   outline-offset: 1px;
+  border-color: var(--green-600);
 }
 
 .sr-only {
@@ -820,11 +841,9 @@ a { color: inherit; }
   display: flex;
   min-height: 0;
   flex-direction: column;
-  background: linear-gradient(145deg, rgba(168, 86, 46, 0.22), rgba(168, 86, 46, 0.08));
-  border: 1px solid rgba(168, 86, 46, 0.52);
-  box-shadow: 0 14px 32px rgba(92, 43, 22, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.55);
-  -webkit-backdrop-filter: blur(16px) saturate(125%);
-  backdrop-filter: blur(16px) saturate(125%);
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
 }
 
 .pending-request-list {
@@ -841,14 +860,6 @@ a { color: inherit; }
   flex: 1;
   min-height: 0;
   overflow: auto;
-}
-
-.staff-dashboard-grid > .panel .data-table th {
-  border-bottom-color: rgba(92, 43, 22, 0.5);
-}
-
-.staff-dashboard-grid > .panel .data-table td {
-  border-bottom-color: rgba(92, 43, 22, 0.32);
 }
 
 @media (max-width: 900px) {
@@ -962,8 +973,9 @@ table.data-table {
 .action-row-sub { font-size: 0.85rem; color: var(--ink-600); margin-top: 2px; }
 .action-row-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
-.pending-request-list .action-row {
-  border-bottom-color: rgba(92, 43, 22, 0.38);
+@media (max-width: 480px) {
+  .action-row { flex-wrap: wrap; }
+  .action-row-actions { width: 100%; justify-content: flex-end; }
 }
 
 .pending-request-list .action-row:last-child {
@@ -1004,6 +1016,11 @@ table.data-table {
   justify-content: center;
   padding: 24px;
   background: url("login-bg.gif") center / cover no-repeat fixed;
+}
+
+/* iOS Safari renders fixed backgrounds poorly/jankily on scroll; use scroll attachment on touch-sized viewports */
+@media (max-width: 767px) {
+  .login-shell { background-attachment: scroll; }
 }
 
 /* Dark green wash over the background gif so the glass card stays readable */
@@ -1085,7 +1102,8 @@ table.data-table {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 10px 12px;
   margin: 4px 0 24px;
   font-size: 0.82rem;
 }
@@ -1161,6 +1179,12 @@ table.data-table {
   .field-row { grid-template-columns: 1fr; gap: 0; }
 }
 
+@media (max-width: 420px) {
+  .login-card { padding: 32px 22px 26px; border-radius: 14px; }
+  .role-tab { padding: 12px 4px; font-size: 0.86rem; }
+  .login-title { font-size: 1.6rem; }
+}
+
 .login-card .form-success {
   background: rgba(228, 235, 224, 0.92);
   color: var(--green-800);
@@ -1205,9 +1229,22 @@ table.data-table {
 
 /* ---------- Small utility forms (dashboard inline forms) ---------- */
 
-.inline-form { display: flex; gap: 8px; }
+.inline-form { display: flex; gap: 8px; flex-wrap: wrap; }
 .inline-form .field-select,
 .inline-form .field-qty { flex-shrink: 0; }
+
+@media (max-width: 480px) {
+  .table-search,
+  .plot-management-form { flex-wrap: wrap; }
+  .table-search input,
+  .plot-management-form input { flex-basis: 100%; }
+  .table-search button,
+  .plot-management-form button { flex: 1; }
+
+  .inline-form select.field-select { flex-basis: 100%; }
+  .inline-form .field-qty { flex: 1 1 70px; width: auto !important; }
+  .inline-form button { flex: 1 1 auto; }
+}
 
 .scroll-y { max-height: 240px; overflow-y: auto; }
 

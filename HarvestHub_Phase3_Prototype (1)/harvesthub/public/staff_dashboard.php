@@ -26,7 +26,7 @@ $navTitle = 'Garden Coordinator Dashboard';
         <form class="table-search" id="applications-search-form">
           <label class="sr-only" for="applications-search">Search applications</label>
           <input id="applications-search" type="search" placeholder="Search gardener or plot">
-          <button class="btn btn-accent btn-sm" type="submit">Search</button>
+          <button class="btn btn-ghost btn-sm" type="submit">Search</button>
         </form>
         <div class="pending-request-list" id="applications-list"></div>
         <p class="text-muted" id="applications-empty" hidden>No pending applications.</p>
@@ -37,7 +37,7 @@ $navTitle = 'Garden Coordinator Dashboard';
         <form class="table-search" id="resource-search-form">
           <label class="sr-only" for="resource-search">Search resource requests</label>
           <input id="resource-search" type="search" placeholder="Search gardener or resource">
-          <button class="btn btn-accent btn-sm" type="submit">Search</button>
+          <button class="btn btn-ghost btn-sm" type="submit">Search</button>
         </form>
         <div class="pending-request-list" id="resource-txns-list"></div>
         <p class="text-muted" id="resource-txns-empty" hidden>No pending resource requests.</p>
@@ -72,7 +72,7 @@ $navTitle = 'Garden Coordinator Dashboard';
       <form class="table-search" id="all-resources-search-form">
         <label class="sr-only" for="all-resources-search">Search resources or borrowers</label>
         <input id="all-resources-search" type="search" placeholder="Search resource or borrower">
-        <button class="btn btn-accent btn-sm" type="submit">Search</button>
+        <button class="btn btn-ghost btn-sm" type="submit">Search</button>
       </form>
       <div class="table-wrap">
         <table class="data-table">
