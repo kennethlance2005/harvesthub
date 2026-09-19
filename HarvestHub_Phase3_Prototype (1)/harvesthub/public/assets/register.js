@@ -1,16 +1,28 @@
-// register.js — "Create an Account" form: submits a pending request,
-// it does NOT log the person in or create the account immediately.
+// register.js — "Create an Account" form: submits a pending request
 
 const form = document.getElementById('register-form');
 const alertEl = document.getElementById('register-alert');
 const successEl = document.getElementById('register-success');
 const roleSelect = document.getElementById('role');
 const shiftField = document.getElementById('shift-field');
+const shiftSelect = document.getElementById('shift');
+
+const firstNameInput = document.getElementById('first-name');
+const lastNameInput = document.getElementById('last-name');
+
+// Prevent typing numbers or special symbols into name fields
+[firstNameInput, lastNameInput].forEach((input) => {
+  input.addEventListener('input', () => {
+    input.value = input.value.replace(/[^A-Za-z\s\-']/g, '');
+  });
+});
 
 roleSelect.addEventListener('change', () => {
   const isCoordinator = roleSelect.value === 'staff';
   shiftField.hidden = !isCoordinator;
-  document.getElementById('shift').required = isCoordinator;
+  if (shiftSelect) {
+    shiftSelect.required = isCoordinator;
+  }
 });
 
 form.addEventListener('submit', async (e) => {
@@ -18,13 +30,62 @@ form.addEventListener('submit', async (e) => {
   alertEl.hidden = true;
   successEl.hidden = true;
 
+  const firstName = firstNameInput.value.trim();
+  const lastName = lastNameInput.value.trim();
+  const ageVal = document.getElementById('age').value.trim();
+  const age = parseInt(ageVal, 10);
+  const location = document.getElementById('location').value;
+  const email = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
   const confirmPassword = document.getElementById('confirm-password').value;
-  const formValues = new FormData(form);
-  const role = String(formValues.get('role') || '').trim();
+  const role = roleSelect.value;
+  const shift = shiftSelect ? shiftSelect.value : 'Morning';
+
+  const namePattern = /^[A-Za-z\s\-']+$/;
+  if (!firstName || !namePattern.test(firstName)) {
+    alertEl.textContent = 'First name must contain letters only.';
+    alertEl.hidden = false;
+    firstNameInput.focus();
+    return;
+  }
+
+  if (!lastName || !namePattern.test(lastName)) {
+    alertEl.textContent = 'Last name must contain letters only.';
+    alertEl.hidden = false;
+    lastNameInput.focus();
+    return;
+  }
+
+  if (!ageVal || isNaN(age) || age < 18 || age > 120) {
+    alertEl.textContent = 'You must be at least 18 years old to create an account.';
+    alertEl.hidden = false;
+    document.getElementById('age').focus();
+    return;
+  }
+
+  if (!location) {
+    alertEl.textContent = 'Please select your city.';
+    alertEl.hidden = false;
+    document.getElementById('location').focus();
+    return;
+  }
+
+  if (!email || !email.includes('@') || !email.includes('.')) {
+    alertEl.textContent = 'Please enter a valid email address.';
+    alertEl.hidden = false;
+    document.getElementById('email').focus();
+    return;
+  }
 
   if (!['customer', 'staff'].includes(role)) {
     alertEl.textContent = 'Please select a role.';
+    alertEl.hidden = false;
+    roleSelect.focus();
+    return;
+  }
+
+  if (password.length < 6) {
+    alertEl.textContent = 'Password must be at least 6 characters.';
     alertEl.hidden = false;
     return;
   }
@@ -37,15 +98,15 @@ form.addEventListener('submit', async (e) => {
 
   const formData = new URLSearchParams({
     action: 'signup_request',
-    first_name: document.getElementById('first-name').value.trim(),
-    last_name: document.getElementById('last-name').value.trim(),
-    age: document.getElementById('age').value.trim(),
-    location: document.getElementById('location').value.trim(),
-    email: document.getElementById('email').value.trim(),
+    first_name: firstName,
+    last_name: lastName,
+    age: age,
+    location: location,
+    email: email,
     password: password,
     confirm_password: confirmPassword,
     role: role,
-    shift: document.getElementById('shift').value,
+    shift: role === 'staff' ? shift : 'Morning',
   });
 
   const submitBtn = form.querySelector('button[type="submit"]');

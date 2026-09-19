@@ -132,9 +132,23 @@ try {
             $shift = trim($_POST['shift'] ?? 'Morning');
 
             $errors = [];
-            if ($firstName === '' || mb_strlen($firstName) > 60) $errors[] = 'First name is required.';
-            if ($lastName === '' || mb_strlen($lastName) > 60) $errors[] = 'Last name is required.';
-            if (!ctype_digit((string) $age) || (int) $age < 13 || (int) $age > 120) $errors[] = 'Age must be between 13 and 120.';
+            
+            if ($firstName === '' || mb_strlen($firstName) > 60) {
+                $errors[] = 'First name is required.';
+            } elseif (!preg_match("/^[A-Za-z\s\-']+$/u", $firstName)) {
+                $errors[] = 'First name must contain only letters.';
+            }
+
+            if ($lastName === '' || mb_strlen($lastName) > 60) {
+                $errors[] = 'Last name is required.';
+            } elseif (!preg_match("/^[A-Za-z\s\-']+$/u", $lastName)) {
+                $errors[] = 'Last name must contain only letters.';
+            }
+
+            if (!ctype_digit((string) $age) || (int) $age < 18 || (int) $age > 120) {
+                $errors[] = 'You must be at least 18 years old to register.';
+            }
+
             if (!in_array($location, NCR_CITIES, true)) $errors[] = 'Please choose a valid NCR city.';
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'A valid email is required.';
             if (mb_strlen($password) < 6) $errors[] = 'Password must be at least 6 characters.';

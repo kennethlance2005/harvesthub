@@ -35,11 +35,11 @@ if ($user = currentUser()) {
       <div class="field-row">
         <div class="field">
           <label for="first-name">First Name</label>
-          <input type="text" id="first-name" name="first_name" autocomplete="given-name" required>
+          <input type="text" id="first-name" name="first_name" autocomplete="given-name" pattern="[A-Za-z\s\-']+" title="Letters only" required>
         </div>
         <div class="field">
           <label for="last-name">Last Name</label>
-          <input type="text" id="last-name" name="last_name" autocomplete="family-name" required>
+          <input type="text" id="last-name" name="last_name" autocomplete="family-name" pattern="[A-Za-z\s\-']+" title="Letters only" required>
         </div>
       </div>
 
@@ -54,7 +54,7 @@ if ($user = currentUser()) {
       <div class="field-row">
         <div class="field">
           <label for="age">Age</label>
-          <input type="number" id="age" name="age" min="13" max="120" autocomplete="off" required>
+          <input type="number" id="age" name="age" min="18" max="120" autocomplete="off" required>
         </div>
         <div class="field">
           <label for="location">Location</label>
@@ -118,6 +118,6 @@ if ($user = currentUser()) {
   </div>
 </div>
 
-<script src="assets/register.js"></script>
+<script src="assets/register.js?v=3"></script>
 </body>
 </html>
