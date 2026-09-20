@@ -21,7 +21,10 @@ $navTitle = 'System Administrator Dashboard';
 
   <!-- Wrap stats in a unified panel -->
   <div class="panel" style="margin-bottom: 24px;">
-    <p class="panel-title">System Overview</p>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <p class="panel-title" style="margin: 0;">System Overview</p>
+      <a href="api.php?action=export_report" class="btn btn-accent btn-sm" target="_blank">Download PDF Report</a>
+    </div>
     <div class="stat-grid" id="stats-row" style="margin-bottom: 0;"></div>
   </div>
 

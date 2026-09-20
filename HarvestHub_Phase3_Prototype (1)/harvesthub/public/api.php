@@ -58,6 +58,60 @@ function requireJsonRole(string $role): array {
     return $user;
 }
 
+function sendResendEmail(string $to, string $subject, string $htmlContent): bool {
+    try {
+        $configFile = __DIR__ . '/../config.php'; 
+        if (!file_exists($configFile)) {
+            error_log("HarvestHub Mail Error: config.php not found at " . $configFile);
+            return false;
+        }
+        
+        $config = require $configFile;
+        $apiKey = $config['resend_api_key'] ?? '';
+        $from = $config['mail_from'] ?? 'onboarding@resend.dev';
+        
+        if (!$apiKey || $apiKey === 're_your_actual_api_key_here') {
+            error_log("HarvestHub Mail Error: Invalid or missing API key.");
+            return false;
+        }
+
+        $payload = json_encode([
+            'from' => $from,
+            'to' => [$to],
+            'subject' => $subject,
+            'html' => $htmlContent
+        ]);
+
+        $ch = curl_init('https://api.resend.com/emails');
+        if ($ch === false) {
+            error_log("HarvestHub cURL Error: curl_init failed.");
+            return false;
+        }
+
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . $apiKey,
+            'Content-Type: application/json'
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        
+        if (curl_errno($ch)) {
+            error_log("HarvestHub cURL Error: " . curl_error($ch));
+        }
+        
+        curl_close($ch);
+
+        return $httpCode >= 200 && $httpCode < 300;
+    } catch (\Throwable $e) {
+        error_log("HarvestHub Mail Exception: " . $e->getMessage());
+        return false;
+    }
+}
+
 // Whitelisted sort options for the Exchange Board — never interpolate
 // raw user input into ORDER BY.
 const SORT_OPTIONS = [
@@ -592,6 +646,7 @@ try {
             $user = requireJsonRole('admin');
             $requestId = $_POST['request_id'] ?? '';
             $decision = $_POST['decision'] ?? '';
+            
             if (!ctype_digit((string) $requestId) || !in_array($decision, ['approve', 'reject'], true)) {
                 respond(['ok' => false, 'error' => 'Invalid request.'], 422);
             }
@@ -627,6 +682,28 @@ try {
             $newStatus = $decision === 'approve' ? 'Approved' : 'Rejected';
             $pdo->prepare("UPDATE SIGNUP_REQUEST SET Status = ?, ReviewedAt = datetime('now'), ReviewedBy = ? WHERE RequestID = ?")
                 ->execute([$newStatus, $user['id'], (int) $requestId]);
+
+            // --- Send Email Notification via Resend ---
+            $applicantEmail = $row['Email'];
+            $applicantName = $row['FirstName'];
+            $subject = $decision === 'approve' ? 'Welcome to HarvestHub! Your account is approved' : 'Update regarding your HarvestHub application';
+            
+            $htmlBody = '
+            <div style="font-family: Arial, sans-serif; color: #201f1b; line-height: 1.5; padding: 20px;">
+                <h2 style="color: #1e3a2b;">Hello ' . htmlspecialchars($applicantName) . ',</h2>';
+            
+            if ($decision === 'approve') {
+                $htmlBody .= '<p>Good news! Your account request for <strong>HarvestHub</strong> has been <span style="color: #2b4d38; font-weight: bold;">approved</span>.</p>
+                              <p>You can now log in to your dashboard and start participating in the community garden network.</p>';
+            } else {
+                $htmlBody .= '<p>Thank you for your interest in HarvestHub. Unfortunately, your account request could not be approved at this time.</p>';
+            }
+            
+            $htmlBody .= '<p style="margin-top: 30px; font-size: 12px; color: #55534b;">HarvestHub Team</p>
+            </div>';
+
+            // Dispatch email using the helper function
+            sendResendEmail($applicantEmail, $subject, htmlspecialchars_decode($htmlBody));
 
             respond(['ok' => true]);
         }
@@ -695,6 +772,192 @@ try {
 
             respond(['ok' => true]);
         }
+
+        case 'export_report': {
+            requireJsonRole('admin');
+            
+            // Include Dompdf manual autoloader
+            require_once __DIR__ . '/../../../vendor/dompdf/dompdf/autoload.inc.php';
+
+            // Gather system metrics for the report
+            $count = fn($sql) => (int) $pdo->query($sql)->fetchColumn();
+            $totalGardeners = $count("SELECT COUNT(*) FROM COMMUNITY_GARDENER");
+            $totalCoordinators = $count("SELECT COUNT(*) FROM GARDEN_COORDINATOR");
+            $plotsOccupied = $count("SELECT COUNT(*) FROM PLOT WHERE Status = 'Occupied'");
+            $plotsAvailable = $count("SELECT COUNT(*) FROM PLOT WHERE Status = 'Available'");
+            
+            // Fetch resources inventory data
+            $resources = $pdo->query("SELECT Name, TotalQty, AvailableQty FROM RESOURCE ORDER BY Name")->fetchAll(PDO::FETCH_ASSOC);
+
+            // Build HTML template matching HarvestHub's green/cream theme
+            $html = '
+            <html>
+            <head>
+                <style>
+                    body { font-family: "Helvetica", sans-serif; color: #201f1b; line-height: 1.5; margin: 40px; }
+                    h1 { color: #1e3a2b; font-size: 24px; border-bottom: 2px solid #ded7c6; padding-bottom: 10px; }
+                    h2 { color: #2b4d38; font-size: 18px; margin-top: 30px; }
+                    .stats-box { background: #f6f3ec; border: 1px solid #ded7c6; padding: 15px; margin-bottom: 20px; border-radius: 6px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+                    th { background: #1e3a2b; color: #ffffff; text-align: left; padding: 8px 10px; }
+                    td { border-bottom: 1px solid #ded7c6; padding: 8px 10px; }
+                    .footer { margin-top: 40px; font-size: 11px; color: #55534b; text-align: right; }
+                </style>
+            </head>
+            <body>
+                <h1>HarvestHub System Health & Inventory Report</h1>
+                <p>Generated on: ' . date('F j, Y, g:i a') . '</p>
+                
+                <div class="stats-box">
+                    <h2>Overview Metrics</h2>
+                    <p><strong>Total Community Gardeners:</strong> ' . $totalGardeners . '</p>
+                    <p><strong>Total Garden Coordinators:</strong> ' . $totalCoordinators . '</p>
+                    <p><strong>Plots Occupied:</strong> ' . $plotsOccupied . '</p>
+                    <p><strong>Plots Available:</strong> ' . $plotsAvailable . '</p>
+                </div>
+
+                <h2>Resource Inventory Status</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Resource Name</th>
+                            <th>Total Quantity</th>
+                            <th>Available Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
+            
+            foreach ($resources as $res) {
+                $html .= '<tr>
+                    <td>' . htmlspecialchars($res['Name']) . '</td>
+                    <td>' . $res['TotalQty'] . '</td>
+                    <td>' . $res['AvailableQty'] . '</td>
+                </tr>';
+            }
+
+            $html .= '
+                    </tbody>
+                </table>
+                <div class="footer">
+                    <p>HarvestHub</p>
+                </div>
+            </body>
+            </html>';
+
+            // Initialize Dompdf using the global namespace backslash
+            $dompdf = new \Dompdf\Dompdf();
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', 'portrait');
+            $dompdf->render();
+
+            // Stream file download to browser
+            $dompdf->stream("HarvestHub_System_Report.pdf", ["Attachment" => true]);
+            exit;
+        }
+
+        case 'export_staff_report': {
+            $user = requireJsonRole('staff');
+            
+            // Include Dompdf manual autoloader
+            require_once __DIR__ . '/../../../vendor/dompdf/dompdf/autoload.inc.php';
+
+            // Gather staff operational data
+            $plots = $pdo->query("
+                SELECT P.Label, P.Status, G.Name AS GardenerName 
+                FROM PLOT P 
+                LEFT JOIN COMMUNITY_GARDENER G ON G.GardenerID = P.GardenerID 
+                ORDER BY P.Label
+            ")->fetchAll(PDO::FETCH_ASSOC);
+
+            $resources = $pdo->query("
+                SELECT R.Name, R.TotalQty, R.AvailableQty,
+                       GROUP_CONCAT(G.Name || ' (' || T.Qty || ')', ', ') AS Borrowers
+                FROM RESOURCE R
+                LEFT JOIN RESOURCE_TXN T ON T.ResourceID = R.ResourceID AND T.Status = 'Approved'
+                LEFT JOIN COMMUNITY_GARDENER G ON G.GardenerID = T.GardenerID
+                GROUP BY R.ResourceID, R.Name, R.TotalQty, R.AvailableQty
+                ORDER BY R.Name
+            ")->fetchAll(PDO::FETCH_ASSOC);
+
+            // Build HTML template matching HarvestHub's theme
+            $html = '
+            <html>
+            <head>
+                <style>
+                    body { font-family: "Helvetica", sans-serif; color: #201f1b; line-height: 1.5; margin: 40px; }
+                    h1 { color: #1e3a2b; font-size: 24px; border-bottom: 2px solid #ded7c6; padding-bottom: 10px; }
+                    h2 { color: #2b4d38; font-size: 18px; margin-top: 30px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+                    th { background: #1e3a2b; color: #ffffff; text-align: left; padding: 8px 10px; }
+                    td { border-bottom: 1px solid #ded7c6; padding: 8px 10px; }
+                    .footer { margin-top: 40px; font-size: 11px; color: #55534b; text-align: right; }
+                </style>
+            </head>
+            <body>
+                <h1>Garden Coordinator Operations Report</h1>
+                <p>Coordinator: ' . htmlspecialchars($user['name']) . ' | Generated on: ' . date('F j, Y, g:i a') . '</p>
+
+                <h2>Plot Management Status</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Plot Label</th>
+                            <th>Status</th>
+                            <th>Assigned Gardener</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
+            
+            foreach ($plots as $p) {
+                $html .= '<tr>
+                    <td>' . htmlspecialchars($p['Label']) . '</td>
+                    <td>' . htmlspecialchars($p['Status']) . '</td>
+                    <td>' . htmlspecialchars($p['GardenerName'] ?? 'Unassigned') . '</td>
+                </tr>';
+            }
+
+            $html .= '
+                    </tbody>
+                </table>
+
+                <h2>Resource Inventory & Borrowers</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Resource Name</th>
+                            <th>Total</th>
+                            <th>Available</th>
+                            <th>Current Borrowers</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
+
+            foreach ($resources as $r) {
+                $html .= '<tr>
+                    <td>' . htmlspecialchars($r['Name']) . '</td>
+                    <td>' . $r['TotalQty'] . '</td>
+                    <td>' . $r['AvailableQty'] . '</td>
+                    <td>' . htmlspecialchars($r['Borrowers'] ?? 'None') . '</td>
+                </tr>';
+            }
+
+            $html .= '
+                    </tbody>
+                </table>
+                <div class="footer">
+                    <p>HarvestHub — Garden Coordinator Report</p>
+                </div>
+            </body>
+            </html>';
+
+            $dompdf = new \Dompdf\Dompdf();
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', 'portrait');
+            $dompdf->render();
+            $dompdf->stream("HarvestHub_Coordinator_Report.pdf", ["Attachment" => true]);
+            exit;
+        }
+
 
         default:
             respond(['ok' => false, 'error' => 'Unknown action.'], 400);
