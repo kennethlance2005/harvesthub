@@ -25,7 +25,7 @@ $navTitle = 'System Administrator Dashboard';
     <div class="stat-grid" id="stats-row" style="margin-bottom: 0;"></div>
   </div>
 
-  <!-- Pending Account Requests Panel -->
+  <!-- Pending Account Request Panel -->
   <div class="panel" style="margin-bottom: 24px;">
     <p class="panel-title">Pending Account Requests</p>
     <div class="table-search">
