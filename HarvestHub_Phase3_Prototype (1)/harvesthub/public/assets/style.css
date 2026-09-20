@@ -347,8 +347,14 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
   GARDENER DASHBOARD (Exchange & Hub)
 ========================================================= */
 .app-section { padding: 8px 0 72px; }
-.app-row { display: grid; grid-template-columns: 340px 1fr; gap: 40px; align-items: start; }
-.gardener-top-grid { align-items: stretch; }
+.board-controls input, .board-controls select { min-width: 0; font-family: var(--font-body); font-size: 0.92rem; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--white); color: var(--ink-900); }
+.gardener-top-grid { align-items: stretch; margin-bottom: 32px; }
+.gardener-top-row {margin-bottom: 36px; align-items: stretch;}
+.top-right-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: stretch; }
+
+@media (max-width: 900px) {
+  .top-right-grid { grid-template-columns: 1fr; }
+}
 
 .post-panel { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; position: sticky; top: 92px; }
 .post-panel h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.4rem; margin: 0 0 6px; }
@@ -358,7 +364,7 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
 .board-head h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.4rem; margin: 0; }
 .board-count { margin: 0; color: var(--ink-600); font-size: 0.88rem; }
 
-.board-controls { display: grid; grid-template-columns: 1.6fr 0.8fr 1fr; gap: 10px; margin-bottom: 20px; }
+.board-controls {display: grid; grid-template-columns: 1.4fr 0.7fr 1fr 1fr; gap: 10px; margin-bottom: 20px;}
 .board-controls input, .board-controls select { font-family: var(--font-body); font-size: 0.92rem; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--white); color: var(--ink-900); }
 .board-controls input:focus, .board-controls select:focus { outline: none; border-color: var(--brown-600); }
 
@@ -378,13 +384,13 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
 #plot-status li { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); }
 #plot-status li:last-child { border-bottom: none; }
 
-/* Resource Sharing Hub Inline Form */
+/* Resource Sharing Hub Inline Form 
 #resource-form { display: flex; flex-direction: row; align-items: center; gap: 8px; flex-wrap: nowrap; }
 #resource-form select { flex: 1 1 auto; min-width: 0; height: 38px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--cream-100); color: var(--ink-900); font-family: var(--font-body); font-size: 0.92rem; }
 #resource-form select:focus { outline: none; border-color: var(--brown-600); background: var(--white); }
 #resource-form input[type="number"] { flex: 0 0 64px; width: 64px; height: 38px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--cream-100); color: var(--ink-900); text-align: center; font-family: var(--font-body); font-size: 0.92rem; }
 #resource-form input[type="number"]:focus { outline: none; border-color: var(--brown-600); background: var(--white); }
-#resource-form button { flex: 0 0 auto; height: 38px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; }
+#resource-form button { flex: 0 0 auto; height: 38px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; }*/
 
 /* =========================================================
   RESPONSIVE BREAKPOINTS
@@ -467,4 +473,46 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .toast { animation: none; }
+}
+
+/* ---------- Master Gardener Dashboard Layout ---------- */
+.gardener-layout {
+  display: grid;
+  /* Mathematically locks the 3 columns */
+  grid-template-columns: 340px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 36px 40px; /* 36px vertical space between rows, 40px horizontal */
+  align-items: stretch; /* Makes top 3 cards exactly equal height */
+}
+
+/* Row 1 Placement */
+.gardener-plot { grid-column: 1 / 2; }
+.gardener-crop { grid-column: 2 / 3; }
+.gardener-res  { grid-column: 3 / 4; }
+
+/* Separator */
+.gardener-board-title { 
+  grid-column: 1 / -1; /* Spans full width */
+  margin: 12px 0 -16px; 
+}
+
+/* Row 2 Placement */
+.gardener-post  { grid-column: 1 / 2; align-self: start; }
+.gardener-board { grid-column: 2 / 4; align-self: start; } /* Spans under Crop & Resource */
+
+/* 4-column filter fix for Available Listings */
+.board-controls {
+  display: grid;
+  grid-template-columns: 1.4fr 0.7fr 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+/* Prevents the layout from breaking on smaller screens */
+@media (max-width: 1050px) {
+  .gardener-layout { grid-template-columns: 300px minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
+}
+@media (max-width: 991px) {
+  .gardener-layout { grid-template-columns: 1fr; }
+  .gardener-plot, .gardener-crop, .gardener-res, .gardener-board-title, .gardener-post, .gardener-board { grid-column: 1 / -1; }
+  .board-controls { grid-template-columns: 1fr 1fr; }
 }

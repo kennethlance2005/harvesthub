@@ -189,31 +189,49 @@ try {
         // ---------------- CUSTOMER: Exchange Board ----------------
 
         case 'list': {
+            $user = currentUser();
             $search = trim($_GET['search'] ?? '');
-            $minQty = isset($_GET['min_qty']) && $_GET['min_qty'] !== '' ? (int) $_GET['min_qty'] : null;
+            $minQty = isset($_GET['min_qty']) && $_GET['min_qty'] !== '' ? (float) $_GET['min_qty'] : null;
             $sortKey = $_GET['sort'] ?? 'newest';
+            $excludeMine = isset($_GET['exclude_mine']) && $_GET['exclude_mine'] === '1';
             $orderBy = SORT_OPTIONS[$sortKey] ?? SORT_OPTIONS['newest'];
 
             $sql = "
-                SELECT L.ListingID, L.Crop, L.Qty, L.Notes, L.CreatedAt, G.Name AS GardenerName
+                SELECT L.ListingID, L.GardenerID, L.Crop, L.Qty, L.Unit, L.Notes, L.CreatedAt, G.Name AS GardenerName, G.Location
                 FROM EXCHANGE_LISTING L
                 JOIN COMMUNITY_GARDENER G ON G.GardenerID = L.GardenerID
                 WHERE L.ListingID NOT IN (SELECT ListingID FROM EXCHANGE_ORDER)
             ";
             $params = [];
-            if ($search !== '') { $sql .= " AND L.Crop LIKE :search"; $params[':search'] = '%' . $search . '%'; }
-            if ($minQty !== null) { $sql .= " AND L.Qty >= :min_qty"; $params[':min_qty'] = $minQty; }
+            if ($search !== '') { 
+                $sql .= " AND L.Crop LIKE :search"; 
+                $params[':search'] = '%' . $search . '%'; 
+            }
+            if ($minQty !== null) { 
+                $sql .= " AND L.Qty >= :min_qty"; 
+                $params[':min_qty'] = $minQty; 
+            }
+            if ($excludeMine && $user && isset($user['id'])) {
+                $sql .= " AND L.GardenerID != :current_user_id";
+                $params[':current_user_id'] = $user['id'];
+            }
             $sql .= " ORDER BY {$orderBy}";
 
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
-            respond(['ok' => true, 'listings' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+            
+            respond([
+                'ok' => true, 
+                'current_user_id' => $user ? $user['id'] : null,
+                'listings' => $stmt->fetchAll(PDO::FETCH_ASSOC)
+            ]);
         }
 
         case 'create': {
             $user = requireJsonRole('customer');
             $crop = trim($_POST['crop'] ?? '');
             $qty = $_POST['qty'] ?? '';
+            $unit = trim($_POST['unit'] ?? 'pcs');
             $notes = trim($_POST['notes'] ?? '');
 
             $errors = [];
@@ -222,12 +240,14 @@ try {
             } elseif (!preg_match("/^[A-Za-z\s\-']+$/u", $crop)) {
                 $errors[] = 'Crop name may only contain letters, spaces, and hyphens.';
             }
-            if (!ctype_digit((string) $qty) || (int) $qty < 1 || (int) $qty > 1000) $errors[] = 'Quantity must be between 1 and 1000.';
+            if (!is_numeric($qty) || (float) $qty <= 0 || (float) $qty > 1000) {
+                $errors[] = 'Quantity must be a valid number between 0.01 and 1000.';
+            }
             if (mb_strlen($notes) > 200) $errors[] = 'Notes must be 200 characters or fewer.';
             if ($errors) respond(['ok' => false, 'errors' => $errors], 422);
 
-            $stmt = $pdo->prepare("INSERT INTO EXCHANGE_LISTING (GardenerID, Crop, Qty, Notes) VALUES (?, ?, ?, ?)");
-            $stmt->execute([$user['id'], htmlspecialchars($crop, ENT_QUOTES, 'UTF-8'), (int) $qty, htmlspecialchars($notes, ENT_QUOTES, 'UTF-8')]);
+            $stmt = $pdo->prepare("INSERT INTO EXCHANGE_LISTING (GardenerID, Crop, Qty, Unit, Notes) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([$user['id'], htmlspecialchars($crop, ENT_QUOTES, 'UTF-8'), (float) $qty, htmlspecialchars($unit, ENT_QUOTES, 'UTF-8'), htmlspecialchars($notes, ENT_QUOTES, 'UTF-8')]);
             respond(['ok' => true, 'listing_id' => $pdo->lastInsertId()]);
         }
 

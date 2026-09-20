@@ -24,6 +24,7 @@ function getDb(): PDO {
     ensureGardenerProfileColumns($pdo);
     ensureCoordinatorProfileColumns($pdo);
     ensurePlotApplicationColumns($pdo);
+    ensureExchangeListingColumns($pdo);
 
     return $pdo;
 }
@@ -117,6 +118,14 @@ function ensurePlotApplicationColumns(PDO $pdo): void {
     $names = array_column($cols, 'name');
     if (!in_array('RequestType', $names, true)) {
         $pdo->exec("ALTER TABLE PLOT_APPLICATION ADD COLUMN RequestType TEXT NOT NULL DEFAULT 'Apply'");
+    }
+}
+
+function ensureExchangeListingColumns(PDO $pdo): void {
+    $cols = $pdo->query("PRAGMA table_info(EXCHANGE_LISTING)")->fetchAll(PDO::FETCH_ASSOC);
+    $names = array_column($cols, 'name');
+    if (!in_array('Unit', $names, true)) {
+        $pdo->exec("ALTER TABLE EXCHANGE_LISTING ADD COLUMN Unit TEXT NOT NULL DEFAULT 'pcs'");
     }
 }
 

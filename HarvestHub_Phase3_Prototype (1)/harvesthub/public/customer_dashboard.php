@@ -19,24 +19,22 @@ $navTitle = 'Community Gardener Dashboard';
 
 <main class="wrap page-wrap" id="top">
 
-  <!-- Top 3 Panels with equal alignment -->
-  <div class="grid grid-3 gardener-top-grid">
+  <!-- Unified Master Grid -->
+  <div class="gardener-layout">
 
-    <!-- Current Plots Panel -->
-    <div class="panel d-flex-col">
+    <!-- ================= ROW 1 (3 Columns) ================= -->
+    <div class="panel d-flex-col gardener-plot">
       <p class="panel-title">Current Plots</p>
       <div id="plot-status" style="flex: 1;"></div>
-
       <button type="button" class="btn btn-accent btn-block" id="request-plot-btn" style="margin-top: 16px;">
-        Request for more plots
+        Request a plot
       </button>
       <div id="available-plots" hidden style="margin-top: 12px;"></div>
       <p class="form-alert" id="plot-request-alert" hidden></p>
       <p class="form-success" id="plot-request-success" hidden></p>
     </div>
 
-    <!-- Crop Lifecycle Log Panel -->
-    <div class="panel d-flex-col">
+    <div class="panel d-flex-col gardener-crop">
       <p class="panel-title">Crop Lifecycle Log</p>
       <form id="croplog-form" novalidate style="margin-bottom: 16px;">
         <div class="field">
@@ -48,37 +46,43 @@ $navTitle = 'Community Gardener Dashboard';
           <input type="text" id="crop-notes" maxlength="300">
         </div>
         <div class="field">
-          <label for="crop-yield">Harvest Yield <span class="field-optional">(e.g. 5 kg)</span></label>
-          <input type="text" id="crop-yield" maxlength="60">
-        </div>
+            <label for="crop-yield-num">Harvest Yield <span class="field-optional">(optional)</span></label>
+            <div class="inline-form" style="display: flex; gap: 8px;">
+              <input type="number" id="crop-yield-num" step="0.01" min="0" placeholder="e.g. 5" style="flex: 1;">
+              <select id="crop-yield-unit" style="width: 100px;">
+                <option value="kg">kg</option>
+                <option value="g">g</option>
+                <option value="pcs">pcs</option>
+                <option value="bundles">bundles</option>
+                <option value="stock">stock</option>
+              </select>
+            </div>
+          </div>
         <button type="submit" class="btn btn-accent btn-block">Add Log Entry</button>
         <p class="form-alert" id="croplog-alert" hidden></p>
       </form>
       <div id="croplog-list" class="scroll-y" style="flex: 1;"></div>
     </div>
 
-    <!-- Resource Sharing Hub Panel -->
-    <div class="panel d-flex-col">
+    <div class="panel d-flex-col gardener-res">
       <p class="panel-title">Resource Sharing Hub</p>
-      <form id="resource-form" class="inline-form" style="margin-bottom: 14px;">
-        <select id="resource-select" class="field-select" style="flex: 1;"></select>
-        <input type="number" id="resource-qty" min="1" value="1" class="field-qty" style="width: 64px;">
-        <button type="submit" class="btn btn-accent btn-sm">Request</button>
+      <form id="resource-form" novalidate style="margin-bottom: 14px;">
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <select id="resource-select" class="field" style="flex: 1; margin-bottom: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--cream-100); font-family: var(--font-body); font-size: 0.95rem;"></select>
+          <input type="number" id="resource-qty" min="1" value="1" class="field" style="width: 70px; text-align: center; margin-bottom: 0; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--cream-100); font-family: var(--font-body); font-size: 0.95rem;">
+        </div>
+        <button type="submit" class="btn btn-accent btn-block">Request</button>
       </form>
       <p class="form-alert" id="resource-alert" hidden></p>
       <p class="text-muted" style="font-size: 0.85rem; margin: 14px 0 6px;">My Requests</p>
       <div id="my-requests-list" class="scroll-y" style="max-height: 200px;"></div>
     </div>
 
-  </div>
+    <!-- ================= SEPARATOR ================= -->
+    <h1 class="panel-title gardener-board-title">Produce Exchange Board</h1>
 
-  <h2 class="panel-title" style="margin: 32px 0 16px;">Produce Exchange Board</h2>
-
-  <div class="app-row">
-
-  <div class="app-row">
-
-    <div class="post-panel" id="post">
+    <!-- ================= ROW 2 (2 Columns) ================= -->
+    <div class="post-panel gardener-post" id="post">
       <h2>Post surplus produce</h2>
       <p class="panel-hint">Fields marked with an asterisk are required.</p>
 
@@ -91,8 +95,17 @@ $navTitle = 'Community Gardener Dashboard';
 
         <div class="field">
           <label for="qty">Quantity *</label>
-          <input type="number" id="qty" name="qty" min="1" max="1000" required>
-          <p class="field-error" id="qty-error" hidden>Enter a whole number between 1 and 1000.</p>
+          <div class="inline-form" style="display: flex; gap: 8px;">
+            <input type="number" id="qty" name="qty" step="0.01" min="0.01" max="1000" required style="flex: 1;">
+            <select id="unit" name="unit" style="width: 100px;">
+              <option value="kg">kg</option>
+              <option value="g">g</option>
+              <option value="pcs">pcs</option>
+              <option value="bundles">bundles</option>
+              <option value="stock">stock</option>
+            </select>
+          </div>
+          <p class="field-error" id="qty-error" hidden>Enter a valid number between 0.01 and 1000.</p>
         </div>
 
         <div class="field">
@@ -108,7 +121,7 @@ $navTitle = 'Community Gardener Dashboard';
       </form>
     </div>
 
-    <div class="board-panel">
+    <div class="board-panel gardener-board">
       <div class="board-head">
         <h2>Available listings</h2>
         <p class="board-count"><span id="results-count">0</span> results</p>
@@ -122,6 +135,11 @@ $navTitle = 'Community Gardener Dashboard';
           <option value="oldest">Oldest first</option>
           <option value="qty_high">Quantity: high to low</option>
           <option value="qty_low">Quantity: low to high</option>
+        </select>
+        <select id="ownership-filter" aria-label="Filter listings by ownership">
+          <option value="all">All listings</option>
+          <option value="exclude_mine">Hide my listings</option>
+          <option value="only_mine">Only my listings</option>
         </select>
       </div>
 
@@ -146,7 +164,7 @@ $navTitle = 'Community Gardener Dashboard';
   </div>
 </footer>
 
-<!-- Claim confirmation modal -->
+<!-- Modals -->
 <div class="modal-overlay" id="claim-modal" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="claim-modal-title">
     <h3 id="claim-modal-title">Claim this listing?</h3>
@@ -158,7 +176,6 @@ $navTitle = 'Community Gardener Dashboard';
   </div>
 </div>
 
-<!-- Unassign confirmation modal -->
 <div class="modal-overlay" id="unassign-modal" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="unassign-modal-title">
     <h3 id="unassign-modal-title">Request plot unassignment?</h3>

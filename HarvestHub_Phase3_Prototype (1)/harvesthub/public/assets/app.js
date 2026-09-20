@@ -1,7 +1,4 @@
 // app.js — Produce Exchange Board frontend logic
-// Fetch-based AJAX calls to api.php, client-side form validation
-// (mirrored, never trusted, on the server), debounced search/filter/sort,
-// a claim confirmation modal, and a live notes character counter.
 
 const API_URL = 'api.php';
 const CROP_PATTERN = /^[A-Za-z\s\-']+$/;
@@ -13,10 +10,12 @@ const resultsCountEl = document.getElementById('results-count');
 const searchEl = document.getElementById('search');
 const minQtyEl = document.getElementById('min-qty');
 const sortEl = document.getElementById('sort');
+const ownershipFilterEl = document.getElementById('ownership-filter');
 
 const formEl = document.getElementById('listing-form');
 const cropEl = document.getElementById('crop');
 const qtyEl = document.getElementById('qty');
+const unitEl = document.getElementById('unit');
 const notesEl = document.getElementById('notes');
 const notesCountEl = document.getElementById('notes-count');
 const cropErrorEl = document.getElementById('crop-error');
@@ -32,6 +31,7 @@ const claimCancelBtn = document.getElementById('claim-cancel');
 const claimConfirmBtn = document.getElementById('claim-confirm');
 
 let pendingClaim = null; // { listingId, btnEl }
+let currentUserId = null;
 
 // ---------- Rendering ----------
 
@@ -52,19 +52,23 @@ function renderListings(listings) {
   emptyStateEl.hidden = true;
 
   for (const item of listings) {
+    const isMine = currentUserId !== null && Number(item.GardenerID) === Number(currentUserId);
+    const location = item.Location || 'Unknown';
+    
     const li = document.createElement('li');
     li.className = 'listing';
     li.innerHTML = `
       <div class="listing-main">
-        <p class="listing-crop">${escapeHtml(item.Crop)}</p>
-        <p class="listing-by">Posted by ${escapeHtml(item.GardenerName)}</p>
+        <p class="listing-crop">${escapeHtml(item.Crop)} ${isMine ? '<span class="text-muted" style="font-size: 0.8rem; font-weight: 500;">(Your listing)</span>' : ''}</p>
+        <p class="listing-by">Posted by ${escapeHtml(item.GardenerName)} | ${escapeHtml(location)}</p>
         ${item.Notes ? `<p class="listing-notes">${escapeHtml(item.Notes)}</p>` : ''}
       </div>
       <div class="listing-side">
-        <span style="font-size: 0.9rem; font-weight: 600; color: var(--ink-900);">Qty: ${escapeHtml(String(item.Qty))}</span>
-        <button class="btn btn-accent claim-btn" data-id="${item.ListingID}" data-crop="${escapeHtml(item.Crop)}" data-qty="${escapeHtml(String(item.Qty))}">
-          Claim
-        </button>
+        <span style="font-size: 0.9rem; font-weight: 600; color: var(--ink-900);">Qty: ${escapeHtml(String(item.Qty))} ${escapeHtml(item.Unit || 'pcs')}</span>
+        ${isMine 
+          ? `<button class="btn btn-sm" style="background: var(--cream-200); color: var(--ink-600); cursor: not-allowed;" disabled>Your Crop</button>`
+          : `<button class="btn btn-accent claim-btn" data-id="${item.ListingID}" data-crop="${escapeHtml(item.Crop)}" data-qty="${escapeHtml(String(item.Qty))}">Claim</button>`
+        }
       </div>
     `;
     listingsEl.appendChild(li);
@@ -82,11 +86,24 @@ async function loadListings() {
   if (searchEl.value.trim()) params.set('search', searchEl.value.trim());
   if (minQtyEl.value) params.set('min_qty', minQtyEl.value);
 
+  const ownership = ownershipFilterEl ? ownershipFilterEl.value : 'all';
+  if (ownership === 'exclude_mine') {
+    params.set('exclude_mine', '1');
+  }
+
   try {
     const res = await fetch(`${API_URL}?${params.toString()}`);
     const data = await res.json();
+    
     if (data.ok) {
-      renderListings(data.listings);
+      currentUserId = data.current_user_id;
+      let listings = data.listings;
+
+      if (ownership === 'only_mine') {
+        listings = listings.filter(item => Number(item.GardenerID) === Number(currentUserId));
+      }
+
+      renderListings(listings);
     } else {
       showToast('Could not load listings.', 'danger');
     }
@@ -137,15 +154,15 @@ function closeClaimModal() {
   pendingClaim = null;
 }
 
-claimCancelBtn.addEventListener('click', closeClaimModal);
-claimModal.addEventListener('click', (e) => {
+if(claimCancelBtn) claimCancelBtn.addEventListener('click', closeClaimModal);
+if(claimModal) claimModal.addEventListener('click', (e) => {
   if (e.target === claimModal) closeClaimModal();
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !claimModal.hidden) closeClaimModal();
+  if (e.key === 'Escape' && claimModal && !claimModal.hidden) closeClaimModal();
 });
 
-claimConfirmBtn.addEventListener('click', () => {
+if(claimConfirmBtn) claimConfirmBtn.addEventListener('click', () => {
   if (!pendingClaim) return;
   const { listingId, btnEl } = pendingClaim;
   claimModal.hidden = true;
@@ -168,8 +185,8 @@ function validateForm() {
     cropErrorEl.hidden = true;
   }
 
-  const qtyNum = Number(qtyEl.value);
-  if (!Number.isInteger(qtyNum) || qtyNum < 1 || qtyNum > 1000) {
+  const qtyNum = parseFloat(qtyEl.value);
+  if (isNaN(qtyNum) || qtyNum <= 0 || qtyNum > 1000) {
     qtyEl.classList.add('invalid');
     qtyErrorEl.hidden = false;
     valid = false;
@@ -181,18 +198,16 @@ function validateForm() {
   return valid;
 }
 
-// Live character-remaining calculation for the notes field
 function updateNotesCount() {
   const remaining = 200 - notesEl.value.length;
   notesCountEl.textContent = remaining;
 }
-notesEl.addEventListener('input', updateNotesCount);
+if(notesEl) notesEl.addEventListener('input', updateNotesCount);
 
-// Validate on blur for immediate feedback, not just on submit
-cropEl.addEventListener('blur', () => { if (cropEl.value) validateForm(); });
-qtyEl.addEventListener('blur', () => { if (qtyEl.value) validateForm(); });
+if(cropEl) cropEl.addEventListener('blur', () => { if (cropEl.value) validateForm(); });
+if(qtyEl) qtyEl.addEventListener('blur', () => { if (qtyEl.value) validateForm(); });
 
-formEl.addEventListener('submit', async (e) => {
+if(formEl) formEl.addEventListener('submit', async (e) => {
   e.preventDefault();
   formAlertEl.hidden = true;
   formSuccessEl.hidden = true;
@@ -205,6 +220,7 @@ formEl.addEventListener('submit', async (e) => {
     action: 'create',
     crop: cropEl.value.trim(),
     qty: qtyEl.value,
+    unit: unitEl.value,
     notes: notesEl.value.trim(),
   });
 
@@ -221,7 +237,7 @@ formEl.addEventListener('submit', async (e) => {
       formSuccessEl.hidden = false;
       formEl.reset();
       updateNotesCount();
-      loadListings();
+      loadListings(); // <--- This triggers the live update
     } else {
       formAlertEl.textContent = (data.errors || [data.error]).join(' ');
       formAlertEl.hidden = false;
@@ -239,9 +255,10 @@ function debouncedLoad() {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(loadListings, 300);
 }
-searchEl.addEventListener('input', debouncedLoad);
-minQtyEl.addEventListener('input', debouncedLoad);
-sortEl.addEventListener('change', loadListings);
+if(searchEl) searchEl.addEventListener('input', debouncedLoad);
+if(minQtyEl) minQtyEl.addEventListener('input', debouncedLoad);
+if(sortEl) sortEl.addEventListener('change', loadListings);
+if(ownershipFilterEl) ownershipFilterEl.addEventListener('change', loadListings);
 
 // ---------- Toasts ----------
 
@@ -256,6 +273,6 @@ function showToast(message, type = 'success') {
 // ---------- Init ----------
 
 document.addEventListener('DOMContentLoaded', () => {
-  updateNotesCount();
+  if(notesEl) updateNotesCount();
   loadListings();
 });
